@@ -71,25 +71,25 @@ def run(rp2_pathways, rp2paths_pathways, rp2paths_compounds, timeout=30):
             #TODO test to see what is the correct phrase
             if 'TIMEOUT' in result:
                 logger.error('Timeout from of ('+str(timeout)+' minutes)')
-                return False
+                return False, 'timeout'
             if 'failed to map segment from shared object' in error:
                 logger.error('RP2paths does not have sufficient memory to continue')
-                return False
+                return False, 'mem'
             ### convert the result to binary and return ###
             logger.debug(glob.glob(os.path.join(tmp_output_folder, '*')))
             try:
                 shutil.copy2(os.path.join(tmp_output_folder, 'out_paths.csv'), rp2paths_pathways)
                 shutil.copy2(os.path.join(tmp_output_folder, 'compounds.txt'), rp2paths_compounds)
-                return True
+                return True, ''
             except FileNotFoundError as e:
                 logger.error('Cannot find the output files out_paths.csv or compounds.txt')
-                return False
+                return False, 'file'
         except OSError as e:
             logger.error('Subprocess detected an error when calling the rp2paths command')
-            return False
+            return False, 'os'
         except ValueError as e:
             logger.error('Cannot set the RAM usage limit')
-            return False
+            return False, 'ram'
 
 # Wrapper for the RP2paths script that takes the same input (results.csv) as the original script but returns
 # the out_paths.csv so as to be compliant with Galaxy

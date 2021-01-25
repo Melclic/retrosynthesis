@@ -6,14 +6,14 @@ FROM ubuntu:18.04
 
 RUN apt-get update \
     && apt-get install -y software-properties-common curl ca-certificates build-essential wget xz-utils \
-    tzdata libgtk2.0-0 libxtst6 libwebkitgtk-3.0-0 python python-dev python-pip \
+    tzdata libgtk2.0-0 libxtst6 libwebkitgtk-3.0-0 python python-dev python-pip python3 python3-dev python3-pip \
     r-base r-recommended \
     supervisor redis redis-server \
     graphviz openjdk-8-jre libxrender-dev libxext6  
 
 RUN R -e 'install.packages(c("Rserve"), repos="http://cran.rstudio.com/")'
 
-RUN pip install pandas protobuf flask-restful redis rq graphviz pydotplus lxml
+RUN pip3 install pandas protobuf flask-restful redis rq graphviz pydotplus lxml
 
 ###############################
 ########## RETROPATH 2 ########
@@ -112,6 +112,9 @@ org.rdkit.knime.feature.feature.group \
 ############################# Files and Tests #############################
 
 COPY rp2/callRP2.py /home/
+COPY rp2/supervisor.conf /home/
+COPY rp2/start_rp2.sh /home/
+git@github.com:Galaxy-SynBioCAD/RetroPath2.git
 COPY rp2/rp2_sanity_test.tar.xz /home/rp2/
 
 #test

@@ -79,7 +79,7 @@ def run(output_path, source_path, sink_path, rules_path, max_steps, topx=100, dm
     :type logger: logging
 
     :rtype: tuple
-    :return: tuple of bytes with the results, the status message, the KNIME command used
+    :return: Boolean of status, the status message
     """
     if passed_logger:
         logger = passed_logger
@@ -134,67 +134,67 @@ def run(output_path, source_path, sink_path, rules_path, max_steps, topx=100, dm
                         count += 1
                 if count>1:
                     logger.error('Execution problem of RetroPath2.0. Source has been found in the sink')
-                    return False
+                    return False, 'source_in_sink'
             except FileNotFoundError as e:
                 logger.error('Cannot find source-in-sink.csv file')
                 logger.error(e)
-                return False
+                return False, 'file'
             ### handle timeout
             if is_timeout:
                 if not is_results_empty and partial_retro:
                     logger.warning('Timeout from retropath2.0 ('+str(timeout)+' minutes)')
                     shutil.copy2(os.path.join(tmp_output_folder, 'results.csv'), output_path)
-                    return True
+                    return True, 'partial'
                 else:
                     logger.error('Timeout from retropath2.0 ('+str(timeout)+' minutes)')
-                    return False
+                    return False, 'timeout'
             ### if java has an memory issue
             if 'There is insufficient memory for the Java Runtime Environment to continue' in result:
                 if not is_results_empty and partial_retro:
                     logger.warning('RetroPath2.0 does not have sufficient memory to continue')
                     shutil.copy2(os.path.join(tmp_output_folder, 'results.csv'), output_path)
                     logger.warning('Passing the results file instead')
-                    return True
+                    return True, 'partial'
                 else:
                     logger.error('RetroPath2.0 does not have sufficient memory to continue')
-                    return False
+                    return False, 'mem'
             ############## IF ALL IS GOOD ##############
             ### csv scope copy to the .dat location
             try:
                 csv_scope = glob.glob(os.path.join(tmp_output_folder, '*_scope.csv'))
                 shutil.copy2(csv_scope[0], output_path)
-                return True
+                return True, 'full'
             except IndexError as e:
                 if not is_results_empty and partial_retro:
                     logger.warning('No scope file generated')
                     shutil.copy2(os.path.join(tmp_output_folder, 'results.csv'), output_path)
                     logger.warning('Passing the results file instead')
-                    return True
+                    return True, 'partial'
                 else:
                     logger.error('RetroPath2.0 has not found any results')
-                    return False
+                    return False, 'noresults'
         except OSError as e:
             if not is_results_empty and partial_retro:
                 logger.warning('Running the RetroPath2.0 Knime program produced an OSError')
                 logger.warning(e)
                 shutil.copy2(os.path.join(tmp_output_folder, 'results.csv'), output_path)
                 logger.warning('Passing the results file instead')
-                return True
+                return True, 'partial'
             else:
                 logger.error('Running the RetroPath2.0 Knime program produced an OSError')
                 logger.error(e)
-                return False
+                return False, 'os'
         except ValueError as e:
             if not is_results_empty and partial_retro:
                 logger.warning('Cannot set the RAM usage limit')
                 logger.warning(e)
                 shutil.copy2(os.path.join(tmp_output_folder, 'results.csv'), output_path)
                 logger.warning('Passing the results file instead')
-                return True
+                return True, 'partial'
             else:
                 logger.error('Cannot set the RAM usage limit')
                 logger.error(e)
-                return False
+                return False, 'ram'
 
 
 if __name__ == "__main__":
@@ -275,15 +275,15 @@ if __name__ == "__main__":
         shutil.copy(params.sourcefile, sourcefile)
         sinkfile = os.path.join(tmp_input_folder, 'sink.csv')
         shutil.copy(params.sinkfile, sinkfile)
-        status = run(params.output_csv,
-                     sourcefile,
-                     sinkfile,
-                     rulesfile,
-                     params.max_steps,
-                     params.topx,
-                     params.dmin,
-                     params.dmax,
-                     params.mwmax_source,
-                     params.mwmax_cof,
-                     params.timeout,
-                     partial_retro)
+        status, status_msg = run(params.output_csv,
+                                 sourcefile,
+                                 sinkfile,
+                                 rulesfile,
+                                 params.max_steps,
+                                 params.topx,
+                                 params.dmin,
+                                 params.dmax,
+                                 params.mwmax_source,
+                                 params.mwmax_cof,
+                                 params.timeout,
+                                 partial_retro)
