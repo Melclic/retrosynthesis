@@ -92,9 +92,6 @@ def passRules(output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], output_
     return True
 
 
-## 
-#
-#
 def parseRules(rule_file, output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], input_format='csv', output_format='csv'):
     """Parse the rules if a user inputs it as a file
 

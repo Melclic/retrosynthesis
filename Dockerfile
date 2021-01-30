@@ -1,19 +1,16 @@
 FROM ubuntu:18.04
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 ###############################
 ########## PACKAGES ###########
 ###############################
 
 RUN apt-get update \
-    && apt-get install -y software-properties-common curl ca-certificates build-essential wget xz-utils \
-    tzdata libgtk2.0-0 libxtst6 libwebkitgtk-3.0-0 python python-dev python-pip python3 python3-dev python3-pip \
-    r-base r-recommended \
-    supervisor redis redis-server \
-    graphviz openjdk-8-jre libxrender-dev libxext6  
+    && apt-get install -y software-properties-common curl tzdata libgtk2.0-0 libxtst6 \
+    libwebkitgtk-3.0-0 python python-dev python-pip r-base r-recommended
 
-RUN R -e 'install.packages(c("Rserve"), repos="http://cran.rstudio.com/")'
-
-RUN pip3 install pandas protobuf flask-restful redis rq graphviz pydotplus lxml
+RUN pip install pandas && pip install protobuf
 
 ###############################
 ########## RETROPATH 2 ########
@@ -49,10 +46,10 @@ ONBUILD RUN mkdir -p /payload/meta
 
 # Copy necessary scripts onto the image
 RUN mkdir /home/rp2/scripts/
-COPY rp2/docker_conf/getversion.py /home/rp2/scripts/getversion.py
-COPY rp2/docker_conf/listvariables.py /home/rp2/scripts/listvariables.py
-COPY rp2/docker_conf/listplugins.py /home/rp2/scripts/listplugins.py
-COPY rp2/docker_conf/run.sh /home/rp2/scripts/run.sh
+COPY docker_conf/getversion.py /home/rp2/scripts/getversion.py
+COPY docker_conf/listvariables.py /home/rp2/scripts/listvariables.py
+COPY docker_conf/listplugins.py /home/rp2/scripts/listplugins.py
+COPY docker_conf/run.sh /home/rp2/scripts/run.sh
 
 # Let anyone run the workflow
 RUN chmod +x /home/rp2/scripts/run.sh
@@ -81,9 +78,16 @@ ONBUILD RUN "$KNIME_DIR/knime" -application org.eclipse.equinox.p2.director \
 
 ############################### Workflow ##############################
 
+#version 9
 ENV RETROPATH_VERSION 9
-ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip
+ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=9
 ENV RETROPATH_SHA256 79069d042df728a4c159828c8f4630efe1b6bb1d0f254962e5f40298be56a7c4
+
+#version 10
+#ENV RETROPATH_VERSION 10
+#ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=10
+#ENV RETROPATH_SHA256 e2ac2c94e9ebe4ede454195bb26f788d3ad7e219bb0e16605cf9a5c72aae9b57
+
 
 # Download RetroPath2.0
 #WORKDIR /home/
@@ -111,22 +115,61 @@ org.rdkit.knime.feature.feature.group \
 
 ############################# Files and Tests #############################
 
-COPY rp2/callRP2.py /home/
-COPY rp2/supervisor.conf /home/
-COPY rp2/start_rp2.sh /home/
-git@github.com:Galaxy-SynBioCAD/RetroPath2.git
-COPY rp2/rp2_sanity_test.tar.xz /home/rp2/
+COPY scripts/runRP2.py /home/
+COPY test/rp2_sanity_test.tar.xz /home/rp2/
 
 #test
 ENV RP2_RESULTS_SHA256 7428ebc0c25d464fbfdd6eb789440ddc88011fb6fc14f4ce7beb57a6d1fbaec2
 RUN tar xf /home/rp2/rp2_sanity_test.tar.xz -C /home/rp2/
-RUN chmod +x /home/callRP2.py
-RUN /home/callRP2.py -sinkfile /home/rp2/test/sink.csv -sourcefile /home/rp2/test/source.csv -rulesfile /home/rp2/test/rules.tar -rulesfile_format tar -max_steps 3 -output_csv /home/rp2/test_scope.csv
+RUN chmod +x /home/runRP2.py
+RUN /home/runRP2.py -sinkfile /home/rp2/test/sink.csv -sourcefile /home/rp2/test/source.csv -rulesfile /home/rp2/test/rules.tar -rulesfile_format tar -max_steps 3 -output_csv /home/rp2/test_scope.csv
 RUN echo "$RP2_RESULTS_SHA256 /home/rp2/test_scope.csv" | sha256sum --check
 
 ############################################
 ############ RP2paths ######################
 ############################################
+
+RUN apt-get update \
+    && apt-get install -y ca-certificates build-essential cmake wget xz-utils \
+    libboost-dev \
+    libboost-iostreams-dev \
+    libboost-python-dev \
+    libboost-regex-dev \
+    libboost-serialization-dev \
+    libboost-system-dev \
+    libboost-thread-dev \
+    libcairo2-dev \
+    libeigen3-dev \
+    python3 python3-dev python3-pip \
+    supervisor redis redis-server \
+    graphviz default-jdk libxrender-dev libxext6  
+
+RUN pip3 install pandas flask-restful redis rq graphviz pydotplus lxml numpy
+
+#### install RDKIT #####
+RUN cd /
+ARG RDKIT_VERSION=Release_2020_09_3
+RUN wget --quiet https://github.com/rdkit/rdkit/archive/${RDKIT_VERSION}.tar.gz \
+	&& tar -xzf ${RDKIT_VERSION}.tar.gz \
+	&& mv rdkit-${RDKIT_VERSION} /rdkit \
+	&& rm ${RDKIT_VERSION}.tar.gz
+RUN cd rdkit/External/INCHI-API && \
+	./download-inchi.sh
+
+WORKDIR /rdkit/build/
+
+RUN cmake -D RDK_BUILD_INCHI_SUPPORT=ON \ 
+          -D PYTHON_EXECUTABLE=/usr/bin/python3.7 \
+	.. && \
+	make && \
+	make install 
+
+RUN make -j $(nproc) \
+	&& make install
+
+ENV RDBASE /rdkit
+ENV LD_LIBRARY_PATH $RDBASE/lib
+ENV PYTHONPATH $PYTHONPATH:$RDBASE
 
 RUN mkdir /home/rp2paths/
 RUN cd /home/rp2paths/
@@ -147,7 +190,7 @@ RUN grep -q '^#!/' /home/rp2paths/RP2paths.py || sed -i '1i #!/usr/bin/env pytho
 RUN rm rp2paths.tar.gz
 RUN rm -r rp2paths-*
 
-COPY rp2paths/callRP2paths.py /home/
+COPY scripts/runRP2paths.py /home/
 
 #############################################
 ######### RetroRules ########################
@@ -164,8 +207,16 @@ RUN wget https://retrorules.org/dl/preparsed/rr02/rp2/hs -O /home/retrorules/rul
     rm -r /home/retrorules/retrorules_rr02_rp2_hs && \
     rm /home/retrorules/rules_rall_rp2.tar.gz
 
-COPY retrorules/callRR.py /home/
+COPY scripts/runRR.py /home/
+
+COPY scripts/pipeline.py /home/
+COPY redis_conf/supervisor.conf /home/
+COPY redis_conf/start.sh /home/
 
 RUN cd /home/
 
-ENTRYPOINT []
+RUN chmod +x /home/start.sh
+CMD ["/home/start.sh"]
+
+# Open server port
+EXPOSE 8888
