@@ -18,7 +18,7 @@ RUN pip install pandas && pip install protobuf
 
 WORKDIR /home/
 RUN mkdir /home/rp2/
-RUN cd /home/rp2/
+WORKDIR /home/rp2/
 
 ENV DOWNLOAD_URL_RP2 https://download.knime.org/analytics-platform/linux/knime_4.2.2.linux.gtk.x86_64.tar.gz
 ENV INSTALLATION_DIR_RP2 /usr/local
@@ -115,15 +115,15 @@ org.rdkit.knime.feature.feature.group \
 
 ############################# Files and Tests #############################
 
-COPY scripts/runRP2.py /home/
-COPY test/rp2_sanity_test.tar.xz /home/rp2/
+#### TODO: redo this
+#COPY test/rp2_sanity_test.tar.xz /home/rp2/
 
 #test
-ENV RP2_RESULTS_SHA256 7428ebc0c25d464fbfdd6eb789440ddc88011fb6fc14f4ce7beb57a6d1fbaec2
-RUN tar xf /home/rp2/rp2_sanity_test.tar.xz -C /home/rp2/
-RUN chmod +x /home/runRP2.py
-RUN /home/runRP2.py -sinkfile /home/rp2/test/sink.csv -sourcefile /home/rp2/test/source.csv -rulesfile /home/rp2/test/rules.tar -rulesfile_format tar -max_steps 3 -output_csv /home/rp2/test_scope.csv
-RUN echo "$RP2_RESULTS_SHA256 /home/rp2/test_scope.csv" | sha256sum --check
+#ENV RP2_RESULTS_SHA256 7428ebc0c25d464fbfdd6eb789440ddc88011fb6fc14f4ce7beb57a6d1fbaec2
+#RUN tar xf /home/rp2/rp2_sanity_test.tar.xz -C /home/rp2/
+#RUN chmod +x /home/runRP2.py
+#RUN /home/runRP2.py -sinkfile /home/rp2/test/sink.csv -sourcefile /home/rp2/test/source.csv -rulesfile /home/rp2/test/rules.tar -rulesfile_format tar -max_steps 3 -output_csv /home/rp2/test_scope.csv
+#RUN echo "$RP2_RESULTS_SHA256 /home/rp2/test_scope.csv" | sha256sum --check
 
 ############################################
 ############ RP2paths ######################
@@ -147,19 +147,20 @@ RUN apt-get update \
 RUN pip3 install pandas flask-restful redis rq graphviz pydotplus lxml numpy
 
 #### install RDKIT #####
-RUN cd /
+WORKDIR /
 ARG RDKIT_VERSION=Release_2020_09_3
 RUN wget --quiet https://github.com/rdkit/rdkit/archive/${RDKIT_VERSION}.tar.gz \
 	&& tar -xzf ${RDKIT_VERSION}.tar.gz \
 	&& mv rdkit-${RDKIT_VERSION} /rdkit \
 	&& rm ${RDKIT_VERSION}.tar.gz
-RUN cd rdkit/External/INCHI-API && \
+
+RUN cd /rdkit/External/INCHI-API && \
 	./download-inchi.sh
 
 WORKDIR /rdkit/build/
 
 RUN cmake -D RDK_BUILD_INCHI_SUPPORT=ON \ 
-          -D PYTHON_EXECUTABLE=/usr/bin/python3.7 \
+          -D PYTHON_EXECUTABLE=/usr/bin/python3.6 \
 	.. && \
 	make && \
 	make install 
@@ -172,7 +173,7 @@ ENV LD_LIBRARY_PATH $RDBASE/lib
 ENV PYTHONPATH $PYTHONPATH:$RDBASE
 
 RUN mkdir /home/rp2paths/
-RUN cd /home/rp2paths/
+WORKDIR /home/rp2paths/
 
 # Download and "install" rp2paths release
 # Check for new versions from 
@@ -190,14 +191,12 @@ RUN grep -q '^#!/' /home/rp2paths/RP2paths.py || sed -i '1i #!/usr/bin/env pytho
 RUN rm rp2paths.tar.gz
 RUN rm -r rp2paths-*
 
-COPY scripts/runRP2paths.py /home/
-
 #############################################
 ######### RetroRules ########################
 #############################################
 
 RUN mkdir /home/retrorules/
-RUN cd /home/retrorules/
+WORKDIR /home/retrorules/
 
 RUN wget https://retrorules.org/dl/preparsed/rr02/rp2/hs -O /home/retrorules/rules_rall_rp2.tar.gz && \
     tar xf /home/retrorules/rules_rall_rp2.tar.gz -C /home/retrorules/ && \
@@ -208,12 +207,15 @@ RUN wget https://retrorules.org/dl/preparsed/rr02/rp2/hs -O /home/retrorules/rul
     rm /home/retrorules/rules_rall_rp2.tar.gz
 
 COPY scripts/runRR.py /home/
+COPY scripts/runRP2paths.py /home/
+COPY scripts/runRP2.py /home/
+COPY scripts/retroPipeline.py /home/
 
-COPY scripts/pipeline.py /home/
 COPY redis_conf/supervisor.conf /home/
 COPY redis_conf/start.sh /home/
+COPY redis_conf/services.py /home/
 
-RUN cd /home/
+WORKDIR /home/
 
 RUN chmod +x /home/start.sh
 CMD ["/home/start.sh"]

@@ -39,7 +39,7 @@ docker build -t melclic/retrosynthesis-redis .
 To run the service on a localhost as the Galaxy interface, after creating the image run the REST service using the following command:
 
 ```
-docker run -p 8888:8888 brsynth/retrosynthesis-redis
+docker run -p 8888:8888 melclic/retrosynthesis-redis
 ```
 
 ### Running the test

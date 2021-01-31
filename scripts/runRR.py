@@ -42,6 +42,8 @@ def passRules(output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], output_
     :return: Success or failure of the function
     """
     logger.debug('Parsing the rules diamters '+str(siamters)+' for type '+str(rules_type)+' with output '+str(output_format)) 
+    if isinstance(diameters, str):
+        diameters = [int(i) for i in diameters]
     rule_file = None
     if rules_type=='all':
         rule_file = '/home/retrorules/rules_rall_rp2.csv' 
