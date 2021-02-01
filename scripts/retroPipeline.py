@@ -9,10 +9,11 @@ import runRP2paths
 
 RR_FILE_FORMAT = 'csv'
 
-def run(rr_diameters,
-        sink_bytes,
+def run(sink_bytes,
         source_inchi,
         max_steps,
+        rr_diameters=[2,4,6,8,10,12,14,16],
+        rr_type='all',
         rr_input_file_bytes=None,
         rr_input_file_format=None,
         source_name='target',
@@ -21,7 +22,7 @@ def run(rr_diameters,
         dmax=1000,
         mwmax_source=1000,
         mwmax_cof=1000,
-        timeout=120,
+        time_out=120,
         ram_limit=None,
         partial_retro=False):
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -29,9 +30,11 @@ def run(rr_diameters,
             rr_file_path = os.path.join(tmp_dir, 'rr.csv')
         elif rr_input_file_format=='tar':
             rr_file_path = os.path.join(tmp_dir, 'rr.tar')
+        if not rr_type in ['all', 'forward', 'retro']:
+            return b'', b'', b'', b'rr_type' 
         rr_ouput_path = os.path.join(tmp_dir, 'rr.csv')
         ################ RetroRules #####################
-        if not rr_input_file:
+        if not rr_input_file_bytes:
             rr_status = runRR.passRules(rr_ouput_path, rr_type, rr_diameters, RR_FILE_FORMAT)
         else:
             rr_input_file_path = os.path.join(tmp_dir, 'in_rules.csv')
@@ -54,17 +57,17 @@ def run(rr_diameters,
                                      dmax,
                                      mwmax_source,
                                      mwmax_cof,
-                                     timeout,
+                                     time_out,
                                      ram_limit,
                                      partial_retro)
         rules_bytes = None 
-        if rp2_results[1]==b'timeouterror' or rp2_results[1]==b'timeoutwarning':
+        if rp2_results[1]==b'time_outerror' or rp2_results[1]==b'time_outwarning':
             if not partial_retro:
                 logging.error('Timeout of RetroPath2.0 -- Try increasing the time_out limit of the tool')
-                return b'', b'', b'', b'rp2_timeout'
+                return b'', b'', b'', b'rp2_time_out'
             else:
                 if rp2_results[0]==b'':
-                    return b'', b'', b'', b'rp2_timeout'
+                    return b'', b'', b'', b'rp2_time_out'
                 else:
                     logging.warning('Timeout of RetroPath2.0 -- Try increasing the time_out limit of the tool -- Using partial rp2_resultss')
         elif rp2_results[1]==b'memwarning' or rp2_results[1]==b'memerror':
@@ -102,12 +105,12 @@ def run(rr_diameters,
             logging.error('Empty rp2_rp2_results')
             return b'', b'', b'', b'rp2_no_rp2_results'
         elif rp2_results[1]==b'noerror':
-            return rp2_results[0], rp2paths_results[0], rp2paths_results[1], b'noerrors'
+            pass
         else:
             logging.error('Could not recognise the status message returned: '+str(rp2_results[1]))
             return b'', b'', b'', b'rp2_status'
         ############### RP2paths ####################
-        rp2paths_results = runRP2paths.run_rp2paths(rp2_results[0], timeout, ram_limit)
+        rp2paths_results = runRP2paths.run_rp2paths(rp2_results[0], time_out, ram_limit)
         if rp2paths_results[2]==b'filenotfounderror':
             logging.error("FileNotFound Error from rp2paths \n "+str(rp2paths_results[3]))
             return b'', b'', b'', b'rp2paths_filenotfound'
@@ -120,9 +123,10 @@ def run(rr_diameters,
         elif rp2paths_results[2]==b'ramerror':
             logging.error("Could not setup a RAM limit \n"+str(rp2paths_results[3]))
             return b'', b'', b'', b'rp2paths_ram'
-        elif rp2paths_results[2]==b'timeout':
-            logging.error("rp2paths has reached its timeout limit, try to increase it \n"+str(rp2paths_results[3]))
-            return b'', b'', b'', b'rp2paths_timeout'
+        elif rp2paths_results[2]==b'time_out':
+            logging.error("rp2paths has reached its time_out limit, try to increase it \n"+str(rp2paths_results[3]))
+            return b'', b'', b'', b'rp2paths_time_out'
         if rp2paths_results[0]==b'' and rp2paths_results[1]==b'':
             logging.error("rp2paths has not found any rp2paths_resultss and returns empty files \n"+str(rp2paths_results[3]))
             return b'', b'', b'', b'rp2paths_empty'
+        return rp2_results[0], rp2paths_results[0], rp2paths_results[1], b'noerrors'

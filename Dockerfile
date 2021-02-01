@@ -215,6 +215,13 @@ COPY redis_conf/supervisor.conf /home/
 COPY redis_conf/start.sh /home/
 COPY redis_conf/services.py /home/
 
+########## sanity test ##########
+COPY test/sanity_test.py /home/
+COPY test/sanity_test.tar.xz /home/
+RUN tar xfv /home/sanity_test.tar.xz -C /home/
+RUN tar xfv /home/sanity_test/rules.tar -C /home/sanity_test/
+RUN python3 /home/sanity_test.py
+
 WORKDIR /home/
 
 RUN chmod +x /home/start.sh

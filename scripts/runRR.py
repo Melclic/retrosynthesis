@@ -41,9 +41,7 @@ def passRules(output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], output_
     :rtype: bool
     :return: Success or failure of the function
     """
-    logger.debug('Parsing the rules diamters '+str(siamters)+' for type '+str(rules_type)+' with output '+str(output_format)) 
-    if isinstance(diameters, str):
-        diameters = [int(i) for i in diameters]
+    logger.debug('Parsing the rules diamters '+str(diameters)+' for type '+str(rules_type)+' with output '+str(output_format)) 
     rule_file = None
     if rules_type=='all':
         rule_file = '/home/retrorules/rules_rall_rp2.csv' 
@@ -56,13 +54,20 @@ def passRules(output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], output_
         return False
     #check the input diameters are valid #
     try:
-        s_diameters = [int(i) for i in diameters.split(',')]
         valid_diameters = []
-        for i in s_diameters:
-            if i not in [2,4,6,8,10,12,14,16]:
-                logger.warning('Diameters must be either 2,4,6,8,10,12,14,16. Ignoring entry: '+str(i))
-            else:
-                valid_diameters.append(i)
+        if isinstance(diameters, str):
+            s_diameters = [int(i) for i in diameters.split(',')]
+            for i in s_diameters:
+                if i not in [2,4,6,8,10,12,14,16]:
+                    logger.warning('Diameters must be either 2,4,6,8,10,12,14,16. Ignoring entry: '+str(i))
+                else:
+                    valid_diameters.append(i)
+        else:
+            for i in diameters:
+                if i not in [2,4,6,8,10,12,14,16]:
+                    logger.warning('Diameters must be either 2,4,6,8,10,12,14,16. Ignoring entry: '+str(i))
+                else:
+                    valid_diameters.append(i) 
     except ValueError:
         logger.error('Invalid diamter entry. Must be int of either 2,4,6,8,10,12,14,16')
         return False
@@ -116,15 +121,23 @@ def parseRules(rule_file, output, rules_type='all', diameters=[2,4,6,8,10,12,14,
     """
     #check the input diameters are valid #
     try:
-        s_diameters = [int(i) for i in diameters.split(',')]
         valid_diameters = []
-        for i in s_diameters:
-            if i not in [2,4,6,8,10,12,14,16]:
-                logger.warning('Diameters must be either 2,4,6,8,10,12,14,16. Ignoring entry: '+str(i))
-            else:
-                valid_diameters.append(i)
+        if isinstance(diameters, str):
+            s_diameters = [int(i) for i in diameters.split(',')]
+            for i in s_diameters:
+                if i not in [2,4,6,8,10,12,14,16]:
+                    logger.warning('Diameters must be either 2,4,6,8,10,12,14,16. Ignoring entry: '+str(i))
+                else:
+                    valid_diameters.append(i)
+        else:
+            for i in diameters:
+                if i not in [2,4,6,8,10,12,14,16]:
+                    logger.warning('Diameters must be either 2,4,6,8,10,12,14,16. Ignoring entry: '+str(i))
+                else:
+                    valid_diameters.append(i) 
     except ValueError:
         logger.error('Invalid diamter entry. Must be int of either 2,4,6,8,10,12,14,16')
+        return False
     ##### create temp file to write ####
     with tempfile.TemporaryDirectory() as tmp_output_folder:
         ##### parse the input ######

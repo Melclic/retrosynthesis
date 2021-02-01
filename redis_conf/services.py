@@ -440,8 +440,22 @@ def retrorules():
         return Response('One or more parameters are malformed: '+str(e), status=400)
     except KeyError as e:
         return Response('One or more of the parameters are missing: '+str(e), status=400)
-    except json.decoder.JSONDecodeError as e:
-        return Response('One or more parameters are malformed: '+str(e), status=400)
+    try:
+        rr_type = str(params['rr_type'])
+    except KeyError:
+        app.logger.info('No reaction rules type. Setting to default "all"')
+        rr_type = 'all'
+    except ValueError:
+        app.logger.warning('Cannot interpret rules type. Setting to default "all"')
+        rr_type = 'all'
+    try:
+        output_format = str(params['output_format'])
+    except KeyError:
+        app.logger.info('No output_format. Setting to default "tar"')
+        output_format = 'tar'
+    except ValueError:
+        app.logger.info('Cannot interpret output_format. Setting to default "tar"')
+        output_format = 'tar'
     #handle the parameters
     try:
         diameters = [int(i) for i in params['diameters'].split(',')]
@@ -451,9 +465,7 @@ def retrorules():
                 app.logger.warning('Diameters must be either 2,4,6,8,10,12,14,16. Ignoring entry: '+str(i))
             else:
                 valid_diameters.append(i)
-        rules_type = str(params['rules_type']) 
-        output_format = str(parans['output_format'])
-        intput_format = str(parans['intput_format'])
+        intput_format = str(params['intput_format'])
     except ValueError:
         app.logger.error('Invalid diameter entry. Must be int of either 2,4,6,8,10,12,14,16')
         return Response('Invalid diameter entry. Must be int of either 2,4,6,8,10,12,14,16', status=400)
@@ -464,8 +476,8 @@ def retrorules():
     if output_format not in ['csv', 'tar']: 
         return Response('output_format must be either csv or tar', status=400)
     if rules_file_bytes:
-        if input_format not in ['csv', 'tar']: 
-            return Response('intput_format must be either csv or tar', status=400)
+        if input_format not in ['csv', 'tsv']: 
+            return Response('intput_format must be either csv or tsv', status=400)
     if rules_format not in ['all', 'forward', 'retro']: 
         return Response('rules_format must be all, forward or retro', status=400)
     ############### run the tool ######################
@@ -478,12 +490,12 @@ def retrorules():
             app.logger.critical('output format should always be cav or tar')
             return Response('output_format must be either csv or tar', status=400)
         if not rules_file_bytes:
-            rr_status = runRR.passRules(out_file_path, rules_type, valid_diameters, output_format)
+            rr_status = runRR.passRules(out_file_path, rules_type, ','.join([str(i) for i in valid_diameters]), output_format)
         else:
             rules_file_path = os.path.join(tmp_dir, 'in_rules.csv')
             with open(rules_file_path, 'wb') as outbi:
                 outbi.write(rules_file_bytes)
-            rr_status = runRR.parseRules(rules_file_path, out_file_path, rules_type, ','.join([str(i) for i in valid_diameters]), input_format, output_format)
+            rr_status = runRR.parseRules(rules_file_path, out_file_path, rules_type, valid_diameters, input_format, output_format)
         if rr_status:
             status_message = 'Successfull execution'
             rr_res = io.BytesIO()
@@ -534,8 +546,16 @@ def pipeline():
         app.logger.warning('Invalid diameter entry. setting to 2,4,6,8,10,12,14,16')
         valid_diameters = [2,4,6,8,10,12,14,16]
     except KeyError as e:
-        app.logger.warning('No diameter entry. setting to 2,4,6,8,10,12,14,16')
+        app.logger.info('No diameter entry. setting to 2,4,6,8,10,12,14,16')
         valid_diameters = [2,4,6,8,10,12,14,16]
+    try:
+        rr_type = str(params['rr_type'])
+    except KeyError:
+        app.logger.info('No rr_type passed. Setting to default "all"')
+        rr_type = 'all'
+    except ValueError:
+        app.logger.warning('rr_type isnt recognised. Setting to default "all"')
+        rr_type = 'all'
     try:
         source_name = str(params['source_name'])
     except KeyError:
@@ -631,10 +651,11 @@ def pipeline():
     q = Queue('default', connection=conn, default_timeout='24h')
     #pass the cache parameters to the rpCofactors object
     async_results = q.enqueue(retroPipeline.run,
-                              ','.join([str(i) for i in valid_diameters]),
                               sink_file_bytes,
                               source_inchi,
                               max_steps,
+                              ','.join([str(i) for i in valid_diameters]),
+                              rr_type,
                               rr_input_file_bytes,
                               rr_input_file_format,
                               source_name,
@@ -649,8 +670,6 @@ def pipeline():
     result = None
     while result is None:
         result = async_results.return_value
-        app.logger.info(async_results.return_value)
-        app.logger.info(async_results.get_status())
         if async_results.get_status()=='failed':
             return Response('Job failed \n '+str(result), status=400)
         time.sleep(2.0)
@@ -709,9 +728,8 @@ def pipeline():
     elif result[3]==b'rr_status':
         app.logger.error('rr status error')
         return Response('rr status error', status=500)
-    elif result[3]==b'rr_status':
-        app.logger.error('rr status error')
-        return Response('rr status error', status=500)
+    elif result[3]==b'noerrors':
+        pass
     else:
         app.logger.error('Cannot recognise the pipeline status message: '+str(result[3]))
         return Response('Cannot recognise the pipeline status message: '+str(result[3]), status=500)
@@ -767,8 +785,16 @@ def nonblock_pipeline():
         app.logger.warning('Invalid diameter entry. setting to 2,4,6,8,10,12,14,16')
         valid_diameters = [2,4,6,8,10,12,14,16]
     except KeyError as e:
-        app.logger.warning('No diameter entry. setting to 2,4,6,8,10,12,14,16')
+        app.logger.info('No diameter entry. setting to 2,4,6,8,10,12,14,16')
         valid_diameters = [2,4,6,8,10,12,14,16]
+    try:
+        rr_type = str(params['rr_type'])
+    except KeyError:
+        app.logger.info('No rr_type passed. Setting to default "all"')
+        rr_type = 'all'
+    except ValueError:
+        app.logger.warning('rr_type isnt recognised. Setting to default "all"')
+        rr_type = 'all'
     try:
         source_name = str(params['source_name'])
     except KeyError:
@@ -797,10 +823,10 @@ def nonblock_pipeline():
         dmax = int(params['dmax'])
     except KeyError:
         app.logger.info('No dmax has been passed. Setting to default 1000')
-        dmin = 1000
+        dmax = 1000
     except ValueError:
         app.logger.warning('Cannot convert passed dmax to int. Setting to default 1000')
-        dmin = 1000
+        dmax = 1000
     try:
         mwmax_source = int(params['mwmax_source'])
     except KeyError:
@@ -833,12 +859,16 @@ def nonblock_pipeline():
     except ValueError:
         app.logger.warning('Cannot convert passed ram_limit to int. Setting to default 120')
         ram_limit = 120
-    if params['partial_retro']=='True' or params['partial_retro']=='T' or params['partial_retro']=='true' or params['partial_retro']==True:
-        partial_retro = True
-    elif params['partial_retro']=='True' or params['partial_retro']=='F' or params['partial_retro']=='false' or params['partial_retro']==False:
-        partial_retro = ''
-    else:
-        app.logger.warning('Cannot interpret partial_retro. Setting to False')
+    try:
+        if params['partial_retro']=='True' or params['partial_retro']=='T' or params['partial_retro']=='true' or params['partial_retro']==True:
+            partial_retro = True
+        elif params['partial_retro']=='True' or params['partial_retro']=='F' or params['partial_retro']=='false' or params['partial_retro']==False:
+            partial_retro = ''
+        else:
+            app.logger.warning('Cannot interpret partial_retro. Setting to False')
+            partial_retro = ''
+    except KeyError:
+        app.logger.info('No partial_retro has been passed. Setting to False')
         partial_retro = ''
     try:
         if 'rules_file' in request.files:
@@ -859,11 +889,12 @@ def nonblock_pipeline():
     conn = Redis()
     q = Queue('default', connection=conn, default_timeout='24h')
     #pass the cache parameters to the rpCofactors object
-    async_results = q.enqueue(pipeline.run,
-                              ','.join([str(i) for i in valid_diameters]),
+    async_results = q.enqueue(retroPipeline.run,
                               sink_file_bytes,
                               source_inchi,
                               max_steps,
+                              ','.join([str(i) for i in valid_diameters]),
+                              rr_type,
                               rr_input_file_bytes,
                               rr_input_file_format,
                               source_name,
@@ -962,9 +993,8 @@ def get_pipeline():
     elif result[3]==b'rr_status':
         app.logger.error('rr status error')
         return Response('rr status error', status=500)
-    elif result[3]==b'rr_status':
-        app.logger.error('rr status error')
-        return Response('rr status error', status=500)
+    elif result[3]==b'noerrors':
+        pass
     else:
         app.logger.error('Cannot recognise the pipeline status message: '+str(result[3]))
         return Response('Cannot recognise the pipeline status message: '+str(result[3]), status=500)
