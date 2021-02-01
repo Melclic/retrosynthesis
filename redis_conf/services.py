@@ -184,41 +184,6 @@ def retropath2():
     except KeyError:
         app.logger.info('No partial_retro has been passed. Setting to False')
         partial_retro = ''
-    #make a directory with the tmp files that have been passed
-    """ only for standalone version not REDIS
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        source_file_path = os.path.join(tmp_dir, 'source.csv')
-        with open(source_file_path, 'wb') as outfi:
-            outfi.write(sink_file_bytes)
-        source_file_bytes = None
-        sink_file_path = os.path.join(tmp_dir, 'sink.csv')
-        with open(sink_file_path, 'wb') as outfi:
-            outfi.write(sink_file_bytes)
-        sink_file_bytes = None
-        rules_file_path = os.path.join(tmp_dir, 'rules.csv')
-        if rules_format=='csv':
-            with open(rules_file_path, 'wb') as outfi:
-                outfi.write(rules_file_bytes)
-        elif rules_format=='tar':
-            #handle if the rules are tar
-            with tempfile.TemporaryDirectory() as tmp_rules_dir:
-                rules_tar_path = os.path.join(tmp_rules_dir, 'rules.tar')
-                with open(rules_tar_path, 'wb') as outfi:
-                    outfi.write(rules_file_bytes)
-                with tarfile.open(rules_tar_path) as rf:
-                    rf.extractall(tmp_rules_dir)
-                out_file = glob.glob(os.path.join(tmp_rules_dir, '*.csv'))
-                if len(out_file)>1:
-                    app.logger.error('Cannot detect file: '+str(out_file))
-                    return Responce('Cannot detect file: '+str(out_file), status=400)
-                elif len(out_file)==0:
-                    app.logger.error('The rules tar input is empty')
-                    return Response('The rules tar input is empty', status=400)
-                shutil.copy2(out_file[0], rules_file_path)
-        else:
-            app.logger.error('Cannot detect the rules_format: '+str(rules_format))
-            return Response('Cannot detect the rules_format: '+str(rules_format), status=400)
-        """
     #handle if the rules are tar
     if rules_format=='tar':
         with tempfile.TemporaryDirectory() as tmp_rules_dir:
