@@ -8,6 +8,7 @@ Created on March 5 2019
 from datetime import datetime
 from flask import Flask, request, jsonify, send_file, abort, Response, make_response
 from flask_restful import Resource, Api
+from rq.job import Job
 import io
 import json
 import time
@@ -907,6 +908,7 @@ def nonblock_pipeline():
                               ram_limit,
                               partial_retro)
     job_status = {'id': async_results.id, 'status': async_results.get_status(), 'meta': async_results.meta}
+    app.logger.info(job_status)
     response = make_response(jsonify(job_status, 202))
     response.headers["Content-Type"] = "application/json"
     return response
@@ -923,17 +925,38 @@ def get_pipeline():
     except KeyError as e:
         return Response('A required file is missing: '+str(e), status=400)
     try:
-        job_id = int(params['job_id'])
+        job_id = params['job_id']
     except KeyError:
         return Response('Need to pass a job_id', status=400)
     failed_registry = q.failed_job_registry
+    failed_jobs = [i for i in failed_registry.get_job_ids()]
+    app.logger.info('failed_jobs: '+str(failed_jobs))
     started_registry = q.started_job_registry
+    started_jobs = [i for i in started_registry.get_job_ids()]
+    app.logger.info('started_jobs: '+str(started_jobs))
     finished_registry = q.finished_job_registry
-    if job_id in failed_registry:
+    finished_jobs = [i for i in finished_registry.get_job_ids()]
+    app.logger.info('finished_jobs: '+str(finished_jobs))
+    deferred_registry = q.deferred_job_registry
+    deferred_jobs = [i for i in deferred_registry.get_job_ids()]
+    app.logger.info('deferred_jobs: '+str(deferred_jobs))
+    scheduled_registry = q.scheduled_job_registry
+    scheduled_jobs = [i for i in scheduled_registry.get_job_ids()]
+    app.logger.info('scheduled_jobs: '+str(scheduled_jobs))
+    queued_jobs = q.get_job_ids()
+    app.logger.info('queued_jobs: '+str(queued_jobs))
+    if job_id in failed_jobs:
         return Response('The job_id '+str(job_id)+' has failed', status=400)
-    elif job_id in started_registry:
-        return Response('The job_id '+str(job_id)+' is running', status=200)
-    elif job_id in finished_registry:
+    elif job_id in started_jobs:
+        return Response('The job_id '+str(job_id)+' is running', status=202)
+    elif job_id in deferred_jobs:
+        return Response('The job_id '+str(job_id)+' is deferred', status=202)
+    elif job_id in scheduled_jobs:
+        return Response('The job_id '+str(job_id)+' is scheduled', status=202)
+    elif job_id in queued_jobs:
+        return Response('The job_id '+str(job_id)+' is queued', status=202)
+    elif job_id in finished_jobs:
+        app.logger.info('The job_id '+str(job_id)+' is finished')
         job = Job.fetch(job_id, connection=conn)
         result = job.result
     else:
