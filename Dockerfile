@@ -10,23 +10,34 @@ RUN apt-get update \
     && apt-get install -y software-properties-common curl tzdata libgtk2.0-0 libxtst6 \
     libwebkitgtk-3.0-0 python python-dev python-pip r-base r-recommended
 
-RUN pip install pandas && pip install protobuf
+RUN pip install pandas protobuf
+
+###### MARVIN ####
+
+WORKDIR /home/extra_packages/
+
+ENV MARVIN_VERSION=20.9
+
+COPY marvin_linux_$MARVIN_VERSION.deb /home/extra_packages/
+COPY license.cxl /home/extra_packages/
+ENV CHEMAXON_LICENSE_URL /home/extra_packages/license.cxl
+RUN dpkg -i /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
+RUN rm /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
 
 ###############################
 ########## RETROPATH 2 ########
 ###############################
 
-WORKDIR /home/
-RUN mkdir /home/rp2/
 WORKDIR /home/rp2/
 
-ENV DOWNLOAD_URL_RP2 https://download.knime.org/analytics-platform/linux/knime_4.2.2.linux.gtk.x86_64.tar.gz
+ENV KNIME_VERSION_SHORT=4.2
+ENV KNIME_VERSION=$KNIME_VERSION_SHORT.5
 ENV INSTALLATION_DIR_RP2 /usr/local
 ENV KNIME_DIR $INSTALLATION_DIR_RP2/knime
 ENV HOME_KNIME_DIR /home/rp2/knime
 
  # Download KNIME
-RUN curl -L "$DOWNLOAD_URL_RP2" | tar vxz -C $INSTALLATION_DIR_RP2 \
+RUN curl -L "https://download.knime.org/analytics-platform/linux/knime_$KNIME_VERSION.linux.gtk.x86_64.tar.gz" | tar vxz -C $INSTALLATION_DIR_RP2 \
     && mv $INSTALLATION_DIR_RP2/knime_* $INSTALLATION_DIR_RP2/knime
 
 # Install Rserver so KNIME can communicate with R
@@ -78,15 +89,10 @@ ONBUILD RUN "$KNIME_DIR/knime" -application org.eclipse.equinox.p2.director \
 
 ############################### Workflow ##############################
 
-#version 9
-ENV RETROPATH_VERSION 9
-ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=9
-ENV RETROPATH_SHA256 79069d042df728a4c159828c8f4630efe1b6bb1d0f254962e5f40298be56a7c4
-
 #version 10
-#ENV RETROPATH_VERSION 10
-#ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=10
-#ENV RETROPATH_SHA256 e2ac2c94e9ebe4ede454195bb26f788d3ad7e219bb0e16605cf9a5c72aae9b57
+ENV RETROPATH_VERSION 10
+ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=10
+ENV RETROPATH_SHA256 e2ac2c94e9ebe4ede454195bb26f788d3ad7e219bb0e16605cf9a5c72aae9b57
 
 
 # Download RetroPath2.0
@@ -104,8 +110,8 @@ RUN rm -r __MACOSX
 #install the additional packages required for running retropath KNIME workflow
 RUN /usr/local/knime/knime -application org.eclipse.equinox.p2.director -nosplash -consolelog \
 -r http://update.knime.org/community-contributions/trunk,\
-http://update.knime.com/analytics-platform/4.2,\
-http://update.knime.com/community-contributions/trusted/4.2 \
+http://update.knime.com/analytics-platform/$KNIME_VERSION_SHORT,\
+http://update.knime.com/community-contributions/trusted/$KNIME_VERSION_SHORT \
 -i org.knime.features.chem.types.feature.group,\
 org.knime.features.datageneration.feature.group,\
 jp.co.infocom.cheminfo.marvin.feature.feature.group,\
@@ -144,11 +150,11 @@ RUN apt-get update \
     supervisor redis redis-server \
     graphviz default-jdk libxrender-dev libxext6  
 
-RUN pip3 install pandas flask-restful redis rq graphviz pydotplus lxml numpy
+RUN pip3 install pandas graphviz pydotplus lxml numpy
 
 #### install RDKIT #####
 WORKDIR /
-ARG RDKIT_VERSION=Release_2020_09_3
+ARG RDKIT_VERSION=Release_2021_03_3
 RUN wget --quiet https://github.com/rdkit/rdkit/archive/${RDKIT_VERSION}.tar.gz \
 	&& tar -xzf ${RDKIT_VERSION}.tar.gz \
 	&& mv rdkit-${RDKIT_VERSION} /rdkit \
@@ -178,16 +184,18 @@ WORKDIR /home/rp2paths/
 # Download and "install" rp2paths release
 # Check for new versions from 
 # https://github.com/brsynth/rp2paths/releases
-ENV RP2PATHS_VERSION 1.0.2
-ENV RP2PATHS_URL https://github.com/brsynth/rp2paths/archive/v${RP2PATHS_VERSION}.tar.gz
+ENV RP2PATHS_VERSION 1.4.2
+#ENV RP2PATHS_URL https://github.com/brsynth/rp2paths/archive/v${RP2PATHS_VERSION}.tar.gz
+ENV RP2PATHS_URL https://github.com/brsynth/rp2paths/archive/refs/tags/${RP2PATHS_VERSION}.tar.gz
 # NOTE: Update sha256sum for each release
-ENV RP2PATHS_SHA256 3813460dea8bb02df48e1f1dfb60751983297520f09cdfcc62aceda316400e66
+ENV RP2PATHS_SHA256 2583997c5de12905b0fa534067cffbd072fed7a6a458d683b552cc43ff5c2cc7
 RUN echo "$RP2PATHS_SHA256  rp2paths.tar.gz" > /home/rp2paths/rp2paths.tar.gz.sha256
 RUN cat /home/rp2paths/rp2paths.tar.gz.sha256
 RUN echo Downloading $RP2PATHS_URL
-RUN curl -v -L -o rp2paths.tar.gz $RP2PATHS_URL && sha256sum rp2paths.tar.gz && sha256sum -c /home/rp2paths/rp2paths.tar.gz.sha256
+RUN curl -v -L -o rp2paths.tar.gz $RP2PATHS_URL
+RUN echo "sha256sum rp2paths.tar.gz"
+RUN sha256sum rp2paths.tar.gz && sha256sum -c /home/rp2paths/rp2paths.tar.gz.sha256
 RUN tar xfv rp2paths.tar.gz && mv rp2paths-*/* /home/rp2paths/
-RUN grep -q '^#!/' /home/rp2paths/RP2paths.py || sed -i '1i #!/usr/bin/env python3' /home/rp2paths/RP2paths.py
 RUN rm rp2paths.tar.gz
 RUN rm -r rp2paths-*
 
@@ -211,10 +219,6 @@ COPY scripts/runRP2paths.py /home/
 COPY scripts/runRP2.py /home/
 COPY scripts/retroPipeline.py /home/
 
-COPY redis_conf/supervisor.conf /home/
-COPY redis_conf/start.sh /home/
-COPY redis_conf/services.py /home/
-
 ########## sanity test ##########
 COPY test/sanity_test.py /home/
 COPY test/sanity_test.tar.xz /home/
@@ -223,9 +227,3 @@ RUN tar xfv /home/sanity_test/rules.tar -C /home/sanity_test/
 RUN python3 /home/sanity_test.py
 
 WORKDIR /home/
-
-RUN chmod +x /home/start.sh
-CMD ["/home/start.sh"]
-
-# Open server port
-EXPOSE 8888
