@@ -45,7 +45,7 @@ with open('/home/sanity_test/sinkfile.csv', 'rb') as biout:
  sink_bytes = biout.read()
 
 
-retroPipeline.run(sink_bytes, 'InChI=1S/C10H16/c1-7-4-5-8-6-9(7)10(8,2)3/h4,8-9H,5-6H2,1-3H3/t8-,9-/m1/s1', 6)
+retroPipeline.run_bytes(sink_bytes, b'InChI=1S/C10H16/c1-7-4-5-8-6-9(7)10(8,2)3/h4,8-9H,5-6H2,1-3H3/t8-,9-/m1/s1', 6)
 
 
 

@@ -74,6 +74,10 @@ def run_rp2(sink_bytes, rules_bytes, source_inchi, max_steps, source_name='targe
     """
     logger = logging.getLogger(__name__)
     logger.debug('Timeout: '+str(timeout*60.0)+' seconds')
+    if isinstance(source_inchi, bytes):
+        source_inchi = source_inchi.decode('utf-8')
+    if isinstance(source_name, bytes):
+        source_name = source_name.decode('utf-8')
     if ram_limit:
         global MAX_VIRTUAL_MEMORY
         MAX_VIRTUAL_MEMORY = ram_limit*1000*1024*1024

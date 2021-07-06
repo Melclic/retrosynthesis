@@ -10,8 +10,6 @@ RUN apt-get update \
     && apt-get install -y software-properties-common curl tzdata libgtk2.0-0 libxtst6 \
     libwebkitgtk-3.0-0 python python-dev python-pip r-base r-recommended
 
-RUN pip install pandas protobuf
-
 ###### MARVIN ####
 
 WORKDIR /home/extra_packages/
@@ -31,7 +29,7 @@ RUN rm /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
 WORKDIR /home/rp2/
 
 ENV KNIME_VERSION_SHORT=4.2
-ENV KNIME_VERSION=$KNIME_VERSION_SHORT.5
+ENV KNIME_VERSION=$KNIME_VERSION_SHORT.2
 ENV INSTALLATION_DIR_RP2 /usr/local
 ENV KNIME_DIR $INSTALLATION_DIR_RP2/knime
 ENV HOME_KNIME_DIR /home/rp2/knime
@@ -39,6 +37,9 @@ ENV HOME_KNIME_DIR /home/rp2/knime
  # Download KNIME
 RUN curl -L "https://download.knime.org/analytics-platform/linux/knime_$KNIME_VERSION.linux.gtk.x86_64.tar.gz" | tar vxz -C $INSTALLATION_DIR_RP2 \
     && mv $INSTALLATION_DIR_RP2/knime_* $INSTALLATION_DIR_RP2/knime
+
+#Install pandas and protobuf so KNIME can communicate with python
+RUN pip install pandas protobuf
 
 # Install Rserver so KNIME can communicate with R
 RUN R -e 'install.packages(c("Rserve"), repos="http://cran.rstudio.com/")'
@@ -89,10 +90,16 @@ ONBUILD RUN "$KNIME_DIR/knime" -application org.eclipse.equinox.p2.director \
 
 ############################### Workflow ##############################
 
+#version 9
+ENV RETROPATH_VERSION 9
+ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=9
+ENV RETROPATH_SHA256 79069d042df728a4c159828c8f4630efe1b6bb1d0f254962e5f40298be56a7c4
+
+### WARNING: does not work, need to update to KNIME 4.3.0 and cannot find the marvin extension with that KNIME VERSION
 #version 10
-ENV RETROPATH_VERSION 10
-ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=10
-ENV RETROPATH_SHA256 e2ac2c94e9ebe4ede454195bb26f788d3ad7e219bb0e16605cf9a5c72aae9b57
+#ENV RETROPATH_VERSION 10
+#ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=10
+#ENV RETROPATH_SHA256 e2ac2c94e9ebe4ede454195bb26f788d3ad7e219bb0e16605cf9a5c72aae9b57
 
 
 # Download RetroPath2.0
@@ -112,12 +119,13 @@ RUN /usr/local/knime/knime -application org.eclipse.equinox.p2.director -nosplas
 -r http://update.knime.org/community-contributions/trunk,\
 http://update.knime.com/analytics-platform/$KNIME_VERSION_SHORT,\
 http://update.knime.com/community-contributions/trusted/$KNIME_VERSION_SHORT \
--i org.knime.features.chem.types.feature.group,\
+-l org.knime.features.chem.types.feature.group,\
 org.knime.features.datageneration.feature.group,\
 jp.co.infocom.cheminfo.marvin.feature.feature.group,\
 org.knime.features.python.feature.group,\
 org.rdkit.knime.feature.feature.group \
 -bundlepool /usr/local/knime/ -d /usr/local/knime/
+
 
 ############################# Files and Tests #############################
 
@@ -214,12 +222,14 @@ RUN wget https://retrorules.org/dl/preparsed/rr02/rp2/hs -O /home/retrorules/rul
     rm -r /home/retrorules/retrorules_rr02_rp2_hs && \
     rm /home/retrorules/rules_rall_rp2.tar.gz
 
-COPY scripts/runRR.py /home/
-COPY scripts/runRP2paths.py /home/
-COPY scripts/runRP2.py /home/
-COPY scripts/retroPipeline.py /home/
-
 ########## sanity test ##########
+
+ADD retrosynthesis /home/retrosynthesis/
+COPY README.md /home/README.md
+COPY LICENSE /home/LICENSE
+WORKDIR /home/retrosynthesis/
+RUN pip3 install -e .
+
 COPY test/sanity_test.py /home/
 COPY test/sanity_test.tar.xz /home/
 RUN tar xfv /home/sanity_test.tar.xz -C /home/

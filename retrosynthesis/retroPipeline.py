@@ -1,6 +1,7 @@
 import os
 import logging
 import tempfile
+import argparse
 import glob
 
 import runRR
@@ -9,22 +10,23 @@ import runRP2paths
 
 RR_FILE_FORMAT = 'csv'
 
-def run(sink_bytes,
-        source_inchi,
-        max_steps,
-        rr_diameters=[2,4,6,8,10,12,14,16],
-        rr_type='all',
-        rr_input_file_bytes=None,
-        rr_input_file_format=None,
-        source_name='target',
-        topx=100,
-        dmin=0,
-        dmax=1000,
-        mwmax_source=1000,
-        mwmax_cof=1000,
-        time_out=120,
-        ram_limit=None,
-        partial_retro=False):
+def run_bytes(sink_bytes,
+              source_inchi_bytes,
+              max_steps,
+              rr_diameters=[2,4,6,8,10,12,14,16],
+              rr_type='all',
+              rr_input_file_bytes=None,
+              rr_input_file_format=None,
+              source_name='target',
+              topx=100,
+              dmin=0,
+              dmax=1000,
+              mwmax_source=1000,
+              mwmax_cof=1000,
+              time_out=120,
+              ram_limit=None,
+              partial_retro=False):
+    logging.debug('source_inchi_bytes: '+str(source_inchi_bytes))
     with tempfile.TemporaryDirectory() as tmp_dir:
         if rr_input_file_format=='csv':
             rr_file_path = os.path.join(tmp_dir, 'rr.csv')
@@ -49,7 +51,7 @@ def run(sink_bytes,
             rules_bytes = outbi.read()
         rp2_results = runRP2.run_rp2(sink_bytes,
                                      rules_bytes,
-                                     source_inchi,
+                                     source_inchi_bytes,
                                      max_steps,
                                      source_name,
                                      topx,
@@ -130,3 +132,86 @@ def run(sink_bytes,
             logging.error("rp2paths has not found any rp2paths_resultss and returns empty files \n"+str(rp2paths_results[3]))
             return b'', b'', b'', b'rp2paths_empty'
         return rp2_results[0], rp2paths_results[0], rp2paths_results[1], b'noerrors'
+
+
+def run(sink_path,
+        source_inchi_path,
+        max_steps,
+        rr_diameters=[2,4,6,8,10,12,14,16],
+        rr_type='all',
+        rr_input_file_path=None,
+        rr_input_file_format=None,
+        source_name='target',
+        topx=100,
+        dmin=0,
+        dmax=1000,
+        mwmax_source=1000,
+        mwmax_cof=1000,
+        time_out=120,
+        ram_limit=None,
+        partial_retro=False):
+    sink_bytes = None
+    with open(sink_path, 'rb') as fi:
+        sink_bytes = fi.read()
+    source_inchi_bytes = None
+    with open(source_inchi_path, 'rb') as fi:
+        source_inchi_bytes = fi.read()
+    rr_input_file_bytes = None
+    if rr_input_file_path:
+        with open(rr_input_file_path, 'rb') as fi:
+            rr_input_file_bytes = fi.read()
+    run_bytes(sink_bytes,
+              source_inchi_bytes,
+              max_steps,
+              rr_diameters,
+              rr_type,
+              rr_input_file_bytes,
+              rr_input_file_format,
+              source_name,
+              topx,
+              dmin,
+              dmax,
+              mwmax_source,
+              mwmax_cof,
+              time_out,
+              ram_limit,
+              partial_retro)
+
+def main():
+    parser = argparse.ArgumentParser(description='Run the retrosynthesis pipeline')
+    parser.add_argument("-sink", "--sink_path", type=str, help="Input sink csv", required=True)
+    parser.add_argument("-source", "--source_path", type=str, help="Input source csv", required=True)
+    parser.add_argument("-s", "--max_steps", type=int, help="Maximum heterologous pathway length", default=5)
+    parser.add_argument("-d", "--rr_diameters", type=str, help="Diameters of the reaction rules", default='2,4,6,8,10,12,14,16')
+    parser.add_argument("-rt", "--rr_type", type=str, help="The type of retrorules", default='all')
+    parser.add_argument("-rri", "--rr_input_file", type=str, help="RetroRules input file", default=None)
+    parser.add_argument("-rrf", "--rr_input_format", type=str, help="RetroRules input format", default=None)
+    parser.add_argument("-sn", "--source_name", type=str, help="The name of the source", default='target')
+    parser.add_argument("-t", "--topx", type=int, help='TopX reaction rule at each iteration', default=100)
+    parser.add_argument("-dmin", "--min_dimension", type=int, help='Minimal reaction rule dimension', default=100)
+    parser.add_argument("-dmax", "--max_dimension", type=int, help='Maximal reaction rule dimension', default=0)
+    parser.add_argument("-ms", "--mwmax_source", type=int, help='Max source iteraction', default=1000)
+    parser.add_argument("-mc", "--mwmax_cof", type=int, help='Max source coefficient', default=1000)
+    parser.add_argument("-to", "--time_out", type=int, help='Time out', default=120)
+    parser.add_argument("-r", "--ram_limit", type=int, help='Ram limit of the execution', default=10)
+    parser.add_argument("-p", "--partial_retro", type=bool, help='Ram limit of the execution', default=10)
+    args = parser.parse_args()
+    run(args.sink_path,
+        args.source_path,
+        args.max_steps,
+        [int(i) for i in args.rr_diameters.split(',')],
+        args.rr_type,
+        args.rr_input_file,
+        args.rr_input_format,
+        args.source_name,
+        args.topx,
+        args.min_dimension,
+        args.max_dimension,
+        args.mwmax_source,
+        args.mwmax_cof,
+        args.time_out,
+        args.ram_limit,
+        args.partial_retro)
+
+if __name__ == "__main__":
+    main()
