@@ -218,9 +218,17 @@ def main():
     parser.add_argument('-input_format', type=str, default='csv', choices=['csv', 'tsv'])
     params = parser.parse_args()
     if params.rules_file=='None' or params.rules_file==None:
-        passRules(params.output, params.rules_type, params.diameters, params.output_format)
+        passRules(params.output, 
+                  params.rules_type, 
+                  [int(i) for i in params.diameters.split(',')], 
+                  params.output_format)
     else:
-        parseRules(params.rules_file, params.output, params.rules_type, params.diameters, params.input_format, params.output_format)
+        parseRules(params.rules_file,
+                   params.output, 
+                   params.rules_type, 
+                   [int(i) for i in params.diameters.split(',')], 
+                   params.input_format, 
+                   params.output_format)
 
 if __name__ == "__main__":
     main()
