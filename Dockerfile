@@ -1,6 +1,6 @@
 FROM ubuntu:18.04
 
-ENV DEBIAN_FRONTEND=noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
 
 ###############################
 ########## PACKAGES ###########
@@ -28,8 +28,8 @@ RUN rm /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
 
 WORKDIR /home/rp2/
 
-ENV KNIME_VERSION_SHORT=4.2
-ENV KNIME_VERSION=$KNIME_VERSION_SHORT.2
+ENV KNIME_VERSION_SHORT=4.3
+ENV KNIME_VERSION=$KNIME_VERSION_SHORT.0
 ENV INSTALLATION_DIR_RP2 /usr/local
 ENV KNIME_DIR $INSTALLATION_DIR_RP2/knime
 ENV HOME_KNIME_DIR /home/rp2/knime
@@ -91,16 +91,14 @@ ONBUILD RUN "$KNIME_DIR/knime" -application org.eclipse.equinox.p2.director \
 ############################### Workflow ##############################
 
 #version 9
-ENV RETROPATH_VERSION 9
-ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=9
-ENV RETROPATH_SHA256 79069d042df728a4c159828c8f4630efe1b6bb1d0f254962e5f40298be56a7c4
+#ENV RETROPATH_VERSION 9
+#ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=9
+#ENV RETROPATH_SHA256 79069d042df728a4c159828c8f4630efe1b6bb1d0f254962e5f40298be56a7c4
 
-### WARNING: does not work, need to update to KNIME 4.3.0 and cannot find the marvin extension with that KNIME VERSION
 #version 10
-#ENV RETROPATH_VERSION 10
-#ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=10
-#ENV RETROPATH_SHA256 e2ac2c94e9ebe4ede454195bb26f788d3ad7e219bb0e16605cf9a5c72aae9b57
-
+ENV RETROPATH_VERSION 10
+ENV RETROPATH_URL https://myexperiment.org/workflows/4987/download/RetroPath2.0_-_a_retrosynthesis_workflow_with_tutorial_and_example_data-v${RETROPATH_VERSION}.zip?version=10
+ENV RETROPATH_SHA256 e2ac2c94e9ebe4ede454195bb26f788d3ad7e219bb0e16605cf9a5c72aae9b57
 
 # Download RetroPath2.0
 #WORKDIR /home/
@@ -115,29 +113,18 @@ RUN rm -r RetroPath2.0
 RUN rm -r __MACOSX
 
 #install the additional packages required for running retropath KNIME workflow
-RUN /usr/local/knime/knime -application org.eclipse.equinox.p2.director -nosplash -consolelog \
--r http://update.knime.org/community-contributions/trunk,\
-http://update.knime.com/analytics-platform/$KNIME_VERSION_SHORT,\
-http://update.knime.com/community-contributions/trusted/$KNIME_VERSION_SHORT \
--l org.knime.features.chem.types.feature.group,\
-org.knime.features.datageneration.feature.group,\
-jp.co.infocom.cheminfo.marvin.feature.feature.group,\
-org.knime.features.python.feature.group,\
-org.rdkit.knime.feature.feature.group \
--bundlepool /usr/local/knime/ -d /usr/local/knime/
+#RUN /usr/local/knime/knime -application org.eclipse.equinox.p2.director -nosplash -consolelog \
+#-r http://update.knime.org/community-contributions/trunk,\
+#http://update.knime.com/analytics-platform/$KNIME_VERSION_SHORT,\
+#http://update.knime.com/community-contributions/trusted/$KNIME_VERSION_SHORT \
+#-l org.knime.features.chem.types.feature.group,\
+#org.knime.features.datageneration.feature.group,\
+#jp.co.infocom.cheminfo.marvin.feature.feature.group,\
+#org.knime.features.python.feature.group,\
+#org.rdkit.knime.feature.feature.group \
+#-bundlepool /usr/local/knime/ -d /usr/local/knime/
 
-
-############################# Files and Tests #############################
-
-#### TODO: redo this
-#COPY test/rp2_sanity_test.tar.xz /home/rp2/
-
-#test
-#ENV RP2_RESULTS_SHA256 7428ebc0c25d464fbfdd6eb789440ddc88011fb6fc14f4ce7beb57a6d1fbaec2
-#RUN tar xf /home/rp2/rp2_sanity_test.tar.xz -C /home/rp2/
-#RUN chmod +x /home/runRP2.py
-#RUN /home/runRP2.py -sinkfile /home/rp2/test/sink.csv -sourcefile /home/rp2/test/source.csv -rulesfile /home/rp2/test/rules.tar -rulesfile_format tar -max_steps 3 -output_csv /home/rp2/test_scope.csv
-#RUN echo "$RP2_RESULTS_SHA256 /home/rp2/test_scope.csv" | sha256sum --check
+RUN /usr/local/knime/knime -application org.eclipse.equinox.p2.director -nosplash -consolelog -r http://update.knime.org/community-contributions/trunk,http://update.knime.com/analytics-platform/$KNIME_VERSION_SHORT,http://update.knime.com/community-contributions/trusted/4.2 -i org.rdkit.knime.feature.feature.group,org.knime.features.python.feature.group,org.knime.features.datageneration.feature.group,org.knime.features.chem.types.feature.group -bundlepool /usr/local/knime/ -d /usr/local/knime/
 
 ############################################
 ############ RP2paths ######################
@@ -227,6 +214,8 @@ RUN wget https://retrorules.org/dl/preparsed/rr02/rp2/hs -O /home/retrorules/rul
 ADD retrosynthesis /home/retrosynthesis/
 COPY README.md /home/README.md
 COPY LICENSE /home/LICENSE
+#IMPORTANT: tells KNIME where to find the python executables
+COPY docker_conf/pref.epf /home/retrosynthesis/pref.epf
 WORKDIR /home/retrosynthesis/
 RUN pip3 install -e .
 
@@ -234,6 +223,22 @@ COPY test/sanity_test.py /home/
 COPY test/sanity_test.tar.xz /home/
 RUN tar xfv /home/sanity_test.tar.xz -C /home/
 RUN tar xfv /home/sanity_test/rules.tar -C /home/sanity_test/
-RUN python3 /home/sanity_test.py
 
+############################# Files and Tests #############################
+
+ENV RP2_STANDALONE_SHA256 6d461c38ea2913e26be1c60b32691914e6c823f543bdf37ac83506322ffa5813
+ENV RP2PATHS_PATH_STANDALONE_SHA256 9ff541870684a7dae3587cfe266bf5c369fbb430368dec786cf08c9fa6989dcb
+ENV RP2PATHS_CMP_STANDALONE_SHA256 dd60ef2de5b876092d324b09905db1b5d4704885cb5f3206c4f26ec51f465e90
+ENV RP2_PIPE_SHA256 2acddab18572d27fe7000d6d70c0621c2e3e9cee4e1beb6f4a12ec9ecf3e7502
+ENV RP2PATHS_PATH_PIPE_SHA256 7e11aeba4fb76735f3b40d356df88a10c8bb75d260cc85216b02b78c7c329f90 
+ENV RP2PATHS_CMP_PIPE_SHA256 d09cf7c1adbe091cf4e534aa2bdeac86462efd475e7c71306f540fd24d776045
+RUN runRP2 -sink_path /home/sanity_test/sinkfile.csv -source_inchi 'InChI=1S/C10H16/c1-7-4-5-8-6-9(7)10(8,2)3/h4,8-9H,5-6H2,1-3H3/t8-,9-/m1/s1' -results_csv /home/sanity_test/results.csv -rules_path /home/sanity_test/Rules.csv
+RUN echo "$RP2_STANDALONE_SHA256 /home/sanity_test/results.csv" | sha256sum --check
+RUN runRP2paths -rp2_pathways /home/sanity_test/results.csv -out_paths /home/sanity_test/rp2_paths.csv -out_compounds /home/sanity_test/rp2_cmps.csv
+RUN echo "$RP2PATHS_PATH_STANDALONE_SHA256 /home/sanity_test/rp2_paths.csv" | sha256sum --check
+RUN echo "$RP2PATHS_CMP_STANDALONE_SHA256 /home/sanity_test/rp2_cmps.csv" | sha256sum --check
+RUN rppipeline -sink /home/sanity_test/sinkfile.csv -source 'InChI=1S/C10H16/c1-7-4-5-8-6-9(7)10(8,2)3/h4,8-9H,5-6H2,1-3H3/t8-,9-/m1/s1' -orp /home/sanity_test/rp2.csv -orp2p /home/sanity_test/rp2paths_p.csv -orp2pc /home/sanity_test/rp2paths_c.csv
+RUN echo "$RP2_PIPE_SHA256 /home/sanity_test/rp2.csv" | sha256sum --check
+RUN echo "$RP2PATHS_PATH_PIPE_SHA256 /home/sanity_test/rp2paths_p.csv" | sha256sum --check
+RUN echo "$RP2PATHS_CMP_PIPE_SHA256 /home/sanity_test/rp2paths_c.csv" | sha256sum --check
 WORKDIR /home/

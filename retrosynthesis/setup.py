@@ -17,6 +17,9 @@ setup(
     entry_points={
         'console_scripts': [
             'rppipeline = retroPipeline:main',
+            'retrorules = runRR:main',
+            'runRP2paths = runRP2paths:main',
+            'runRP2 = runRP2:main',
         ]
     },
 )

@@ -7,7 +7,6 @@ Created on September 21 2019
 
 """
 
-import shutil
 import csv
 import io
 import os
@@ -209,7 +208,7 @@ def parseRules(rule_file, output, rules_type='all', diameters=[2,4,6,8,10,12,14,
     return True
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser('Parse reaction rules to user defined diameters')
     parser.add_argument('-rules_type', type=str, default='all', choices=['all', 'forward', 'retro'])
     parser.add_argument('-rules_file', type=str, default='None')
@@ -222,3 +221,6 @@ if __name__ == "__main__":
         passRules(params.output, params.rules_type, params.diameters, params.output_format)
     else:
         parseRules(params.rules_file, params.output, params.rules_type, params.diameters, params.input_format, params.output_format)
+
+if __name__ == "__main__":
+    main()
