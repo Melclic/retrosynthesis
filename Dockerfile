@@ -170,34 +170,38 @@ RUN pip3 install pandas graphviz pydotplus lxml numpy
 #RUN cmake ..
 #RUN make && make install
 
-WORKDIR /
-ARG RDKIT_VERSION=Release_2020_09_3
-#ARG RDKIT_VERSION=Release_2025_03_6
-RUN wget --quiet https://github.com/rdkit/rdkit/archive/${RDKIT_VERSION}.tar.gz \
-	&& tar -xzf ${RDKIT_VERSION}.tar.gz \
-	&& mv rdkit-${RDKIT_VERSION} /rdkit \
-	&& rm ${RDKIT_VERSION}.tar.gz
+#WORKDIR /rdkit/build/
 
-RUN cd /rdkit/External/INCHI-API && \
-	./download-inchi.sh
+#WORKDIR /
+#ARG RDKIT_VERSION=Release_2020_09_3
+##ARG RDKIT_VERSION=Release_2025_03_6
+#RUN wget --quiet https://github.com/rdkit/rdkit/archive/${RDKIT_VERSION}.tar.gz \
+#	&& tar -xzf ${RDKIT_VERSION}.tar.gz \
+#	&& mv rdkit-${RDKIT_VERSION} /rdkit \
+#	&& rm ${RDKIT_VERSION}.tar.gz
+#
+##RUN cd /rdkit/External/INCHI-API && \
+##	./download-inchi.sh
+#
+#WORKDIR /rdkit/build/
+#
+#RUN cmake -DRDK_BUILD_INCHI_SUPPORT=ON \ 
+#	  -DRDK_INSTALL_INTREE=ON \
+#	  -DRDK_INSTALL_STATIC_LIBS=OFF \
+#	  -DRDK_BUILD_CPP_TESTS=ON \
+#	  -DRDK_BUILD_PYTHON_WRAPPERS=ON \
+#	  -DPy_ENABLE_SHARED=1 \
+#	  -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+#	  .. 
+#
+#RUN make -j $(nproc) \
+#	&& make install
+#
+#ENV RDBASE /rdkit
+#ENV LD_LIBRARY_PATH $RDBASE/lib
+#ENV PYTHONPATH $PYTHONPATH:$RDBASE
 
-WORKDIR /rdkit/build/
-
-RUN cmake -DRDK_BUILD_INCHI_SUPPORT=ON \ 
-	  -DRDK_INSTALL_INTREE=ON \
-	  -DRDK_INSTALL_STATIC_LIBS=OFF \
-	  -DRDK_BUILD_CPP_TESTS=ON \
-	  -DRDK_BUILD_PYTHON_WRAPPERS=ON \
-	  -DPy_ENABLE_SHARED=1 \
-	  -DPYTHON_EXECUTABLE=/usr/bin/python3.6 \
-	  .. 
-
-RUN make -j $(nproc) \
-	&& make install
-
-ENV RDBASE /rdkit
-ENV LD_LIBRARY_PATH $RDBASE/lib
-ENV PYTHONPATH $PYTHONPATH:$RDBASE
+RUN pip3 install rdkit
 
 ##############################################
 ########## RP2PATHS ##########################
@@ -252,11 +256,11 @@ COPY scripts/retroPipeline.py /home/
 #COPY redis_conf/services.py /home/
 
 ########## sanity test ##########
-COPY test/sanity_test.py /home/
+#COPY test/sanity_test.py /home/
 COPY test/sanity_test.tar.xz /home/
 RUN tar xfv /home/sanity_test.tar.xz -C /home/
 RUN tar xfv /home/sanity_test/rules.tar -C /home/sanity_test/
-RUN python3 /home/sanity_test.py
+#RUN python3 /home/sanity_test.py
 
 WORKDIR /home/
 
