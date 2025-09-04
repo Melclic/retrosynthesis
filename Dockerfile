@@ -12,15 +12,15 @@ RUN apt-get update \
 
 ###### MARVIN ####
 
-WORKDIR /home/extra_packages/
+#WORKDIR /home/extra_packages/
 
-ENV MARVIN_VERSION=20.9
+#ENV MARVIN_VERSION=20.9
 
-COPY marvin_linux_$MARVIN_VERSION.deb /home/extra_packages/
-COPY license.cxl /home/extra_packages/
-ENV CHEMAXON_LICENSE_URL /home/extra_packages/license.cxl
-RUN dpkg -i /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
-RUN rm /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
+#COPY marvin_linux_$MARVIN_VERSION.deb /home/extra_packages/
+#COPY license.cxl /home/extra_packages/
+#ENV CHEMAXON_LICENSE_URL /home/extra_packages/license.cxl
+#RUN dpkg -i /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
+#RUN rm /home/extra_packages/marvin_linux_$MARVIN_VERSION.deb
 
 ###############################
 ########## RETROPATH 2 ########
@@ -39,10 +39,10 @@ RUN curl -L "https://download.knime.org/analytics-platform/linux/knime_$KNIME_VE
     && mv $INSTALLATION_DIR_RP2/knime_* $INSTALLATION_DIR_RP2/knime
 
 #Install pandas and protobuf so KNIME can communicate with python
-RUN pip install pandas protobuf
+#RUN pip install pandas protobuf
 
 # Install Rserver so KNIME can communicate with R
-RUN R -e 'install.packages(c("Rserve"), repos="http://cran.rstudio.com/")'
+#RUN R -e 'install.packages(c("Rserve"), repos="http://cran.rstudio.com/")'
 
 # Build argument for the workflow directory
 ONBUILD ARG WORKFLOW_DIR="workflow/"
@@ -213,7 +213,7 @@ RUN wget https://retrorules.org/dl/preparsed/rr02/rp2/hs -O /home/retrorules/rul
 
 ADD retrosynthesis /home/retrosynthesis/
 COPY README.md /home/README.md
-COPY LICENSE /home/LICENSE
+#COPY LICENSE /home/LICENSE
 #IMPORTANT: tells KNIME where to find the python executables
 COPY docker_conf/pref.epf /home/retrosynthesis/pref.epf
 WORKDIR /home/retrosynthesis/
