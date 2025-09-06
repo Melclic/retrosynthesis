@@ -16,7 +16,7 @@ USER knime
 
 ENV PATH=/home/knime/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-RUN conda install -c rdkit -c conda-forge -c brsynth -c bioconda rrparser retropath2_wrapper rp2paths rp2paths rdkit=2025.03.6 -y
+RUN conda install -c rdkit -c conda-forge -c brsynth -c bioconda rrparser retropath2_wrapper rp2paths rp2paths -y
 
 WORKDIR /home/knime
 
@@ -63,5 +63,7 @@ RUN rm RetroPath2_0.zip
 RUN rm -r RetroPath2.0
 RUN rm -r __MACOSX
 
+RUN python -c "from rrparser import parse_rules; parse_rules(outfile='tmp.csv',input_format='csv',rule_type='all',diameters='2,4,6,8,10,12,14,16',output_format='csv')" && rm tmp.csv
 
+COPY scripts/retropipeline.py .
 
