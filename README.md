@@ -1,77 +1,151 @@
-# Retrosynthesis docker
+# Retrosynthesis
 
-Perform retrosynthesis search of possible metabolic routes between a source molecule and a collection of sink molecules. Docker implementation of the KNIME retropath2.0 workflow. Takes for input the minimal (dmin) and maximal (dmax) diameter for the reaction rules and the maximal path length (maxSteps). The docker mounts a local folder and expects the following files: rules.csv, sink.csv and source.csv. We only support a single source molecule at this time. 
+This project provides an easier way to run retrosynthetic workflow to search for possible metabolic 
+routes between a list of starting molecules (sink) and a target molecule (source).
 
-## Input
-
-Required:
-* **-sinkfile**: (string) Path to the sink file
-* **-sourcefile**: (string) Path to the source file
-* **-max_steps**: (integer) Maximal number of steps 
-* **-rulesfile**: (string) Path to the rules file
-* **-rulesfile_format**: (string) Valid Options: tar, csv. Format of the rules file
-
-Advanced options:
-* **-topx**: (integer, default: 100) For each iteration, number of rules
-* **-dmin**: (integer, default: 0)
-* **-dmax**: (integer, default: 1000)
-* **-mwmax_source**: (integer, default: 1000)
-* **-mwmax_cof**: (integer, default: 1000)
-* **-timeout**: (integer, default: 30) Timeout in minutes
-* **-server_url**: (string, default: http://0.0.0.0:8888/REST) IP address of the REST service
-
-## Output
-
-* **-scope_csv**: (string) Path to the output scope csv file
+---
 
 ## Dependencies
 
-* Base docker image: [ubuntu:18.04](https://hub.docker.com/layers/ubuntu/library/ubuntu/18.04/images/sha256-60a99a670b980963e4a9d882f631cba5d26ba5d14ccba2aa82a4e1f4d084fb1f?context=explore)
+The pipeline uses the following projects:
 
-## Building the docker
+- **[RRParser](https://github.com/brsynth/RRParser)**: for generating retrosynthesis rules.
+- **[RetroPath2-wrapper](https://github.com/brsynth/RetroPath2-wrapper)**: the RetroPath2 workflow engine.
+- **[rp2paths](https://github.com/brsynth/rp2paths)**: for pathway enumeration.
+- **KNIME base image**: [knime/knime:r-4.7.8-738](https://hub.docker.com/layers/knime/knime/r-4.7.8-738/images/sha256-aafd39556d1ed2911f8105aaa71fdcb3e748c575fe70045ac62dd5ff0ba1de69)
 
-Compile the docker image if it hasen't already been done:
+---
 
-```
-docker build -t melclic/retrosynthesis-redis .
-```
+## Installation
 
-To run the service on a localhost as the Galaxy interface, after creating the image run the REST service using the following command:
+### Using Docker (recommended)
 
-```
-docker run -p 8888:8888 melclic/retrosynthesis-redis
-```
+The easiest way to run this pipeline is to pull the prebuilt Docker image:
 
-### Running the test
-
-To test the docker, untar the test.tar.xz file and run the following command:
-
-```
-python tool_RetroPath2.py -sinkfile test/sink.csv -sourcefile test/source.csv -rulesfile test/rules.tar -rulesfile_format tar -max_steps 3 -scope_csv test_scope.csv
+```bash
+docker pull melclic/retrosynthesis:rp-0.1.0
 ```
 
-## Contributing
+### Build Docker locally
 
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
+Clone this repository and build the Docker image locally:
 
-## Version
+```bash
+docker build -t retrosynthesis:local .
+```
 
-v8.0
+---
 
-## Authors
+## Usage
 
-* **Melchior du Lac**
+Within the docker you can run the script with:
 
-## License
+```bash
+python retropipeline.py --sink-file sink.csv --source-inchi "InChI=1S/..." --out-path out_paths.csv
+```
 
-This project is licensed under the GPL2 License - see the [LICENSE.md](LICENSE.md) file for details
+Or within your terminal:
 
-## Acknowledgments
+```bash
+docker run --rm -v $PWD:/data melclic/retrosynthesis:rp-0.1.0 \
+  --sink-file /data/sink.csv \
+  --source-inchi "InChI=..." \
+  --out-path /data/out_paths.csv
+```
 
-* Thomas Duigou
-* Joan Hérisson
+---
 
-### How to cite RetroPath2.0?
-Please cite:
+## Parameters
 
-Delépine B, Duigou T, Carbonell P, Faulon JL. RetroPath2.0: A retrosynthesis workflow for metabolic engineers. Metabolic Engineering, 45: 158-170, 2018. DOI: https://doi.org/10.1016/j.ymben.2017.12.002
+Below is the full list of supported parameters.
+
+- **--sink-file** *(required)*  
+  Path to the sink CSV file. The sink defines the target compounds.
+
+- **--source-inchi** *(required)*  
+  InChI string of the source compound.
+
+- **--out-path** *(required)*  
+  Path where the final `out_paths.csv` file will be written.  
+
+- **--rules-file** *(optional)*  
+  Path to a pre-computed rules file.  
+  If not given, rules are generated automatically using RRParser.
+
+- **--std-mode** *(default: `H added + Aromatized`)*  
+  Standardization mode for molecules. Options:  
+  - `H added + Kekulized`  
+  - `H added + Aromatized`  
+  - `Aromatized (no Hs added)` (not supported; raises error)
+
+- **--max-steps** *(default: `6`)*  
+  Maximum number of retrosynthesis steps.
+
+- **--topx** *(default: `1000`)*  
+  Top number of rules to retain per iteration.
+
+- **--kexec** *(default: `/usr/local/knime/knime`)*  
+  Path to the KNIME executable. Do not change if running in docker.
+
+- **--kinstall** *(default: `/usr/local/knime`)*  
+  Path to the KNIME installation directory. Do not change if running in docker.
+
+- **--kver** *(default: `4.7.8`)*  
+  KNIME version string. Do not change if running in docker.
+
+- **--diameters** *(default: `2,4,6,8,10,12,14,16`)*  
+  Reaction rule diameters used by RRParser (comma-separated string). Use if
+  you do not provide a rules file
+
+- **--rule-type** *(default: `all`)*  
+  Type of rules to generate. Options:  
+  - `all`  
+  - `retro`  
+  - `forward`
+  Use if you do not provide a rules file.
+
+- **--dmin** *(default: `0`)*  
+  Minimum rule diameter.
+
+- **--dmax** *(default: `1000`)*  
+  Maximum rule diameter.
+
+- **--mwmax-source** *(default: `1000`)*  
+  Maximum molecular weight allowed for intermediate compounds.
+
+- **--mwmax-cof** *(default: `1000`)*  
+  Molecular weight scaling coefficient.
+
+- **--timeout** *(default: `60`)*  
+  Timeout for KNIME execution (minutes).
+
+- **--ram-limit** *(default: `30`)*  
+  Virtual memory limit for KNIME (GB).
+
+- **--partial-retro** *(default: `False`)*  
+  If enabled, partial results are returned when execution is interrupted or if
+  the execution does not complete successfully.
+
+---
+
+## Output
+
+The pipeline produces:
+
+- **out_paths.csv**: final enumerated pathways (main output).
+
+---
+
+## Example
+
+```bash
+python retropipeline.py \
+  --sink-file sink.csv \
+  --source-inchi "InChI=1S/C7H6O2/c8-7(9)6-4-2-1-3-5-6/h1-5H,(H,8,9)" \
+  --out-path out_paths.csv \
+  --max-steps 8 \
+  --topx 1000 \
+  --rule-type all
+```
+
+---
