@@ -354,7 +354,8 @@ def run_pipeline(
 ) -> None:
     """Run the full pipeline and return the final out_paths.csv path."""
     sink_file = Path(sink_file).expanduser().resolve()
-    rules_file = Path(rules_file).expanduser().resolve()
+    if rules_file:
+        rules_file = Path(rules_file).expanduser().resolve()
     logging.debug(f'sink_file: {sink_file}')
     logging.debug(f'rules_file: {rules_file}')
     validate_std_mode(std_mode)
@@ -494,8 +495,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         pipe_status = run_pipeline(
             sink_file=args.sink_file,
             source_inchi=args.source_inchi,
+            # rules
             rules_file=args.rules_file,
-            # rules-gen
             diameters=cleaned_diameters,
             rule_type=args.rule_type,
             # rp2
@@ -509,6 +510,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             timeout=args.timeout,
             ram_limit=args.ram_limit,
             partial_retro=args.accept_partial_results,
+            # out
             out_scope=args.out_scope,
             out_paths=args.out_paths,
             out_compounds=args.out_compounds,
