@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import pandas as pd
 import shutil
 import subprocess
 import sys
@@ -33,7 +34,7 @@ from rrparser import parse_rules
 import logging
 
 logging.basicConfig(
-    level=logging.ERROR,
+    level=logging.DEBUG,
     format="%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s",
     datefmt="%d-%m-%Y %H:%M:%S",
 )
@@ -52,7 +53,7 @@ DEFAULT_RULES_OUTPUT_FORMAT = "csv"    # 'csv' | 'tsv'
 DEFAULT_RULES_TYPE = "all"           # 'all' | 'retro' | 'forward'
 DEFAULT_DIAMETERS = "2,4,6,8,10,12,14,16"
 
-DEFAULT_STD_MODE = "H added + Aromatized"
+DEFAULT_STD_MODE = "H added + Kekulized"
 DEFAULT_MAX_STEPS = 6
 DEFAULT_TOPX = 1000
 DEFAULT_DMIN = 0
@@ -71,13 +72,10 @@ DEFAULT_RP2_WORKFLOW = "/home/rp2/RetroPath2.0.knwf"
 # --- Status codes ---
 STATUS_OK = 0
 STATUS_TIMEOUT_ERROR = 10
-STATUS_TIMEOUT_WARNING = 11
 STATUS_MEM_ERROR = 20
-STATUS_MEM_WARNING = 21
 STATUS_SOURCE_IN_SINK_ERROR = 30
 STATUS_SOURCE_IN_SINK_NOT_FOUND = 31
 STATUS_NO_RESULT_ERROR = 40
-STATUS_NO_RESULT_WARNING = 41
 STATUS_OS_ERROR = 50
 STATUS_RAM_ERROR = 60
 
@@ -164,8 +162,8 @@ def generate_source_file_from_inchi(outfile: str, source_inchi: str) -> None:
         # target,InChI=1S/C2H6/c1-2/h1-2H3
     """
     with open(outfile, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(["name", "inchi"])
+        writer = csv.writer(f, delimiter=",", quotechar='"', quoting=csv.QUOTE_ALL)
+        writer.writerow(["Name", "InChI"])
         writer.writerow(["target", source_inchi.replace(" ", "")])
 
 def run_rp2paths(target_scope_file: str, outdir: str):
@@ -218,24 +216,18 @@ def run_rp2(
     Returns:
         int: One of STATUS_* codes.
     """
-    logger = logging.getLogger(__name__)
-    logger.debug(f"Timeout: {timeout * 60.0} seconds")
 
+    logging.debug(f'partial_retro: {partial_retro}')
     global MAX_VIRTUAL_MEMORY
     if ram_limit is not None:
         MAX_VIRTUAL_MEMORY = ram_limit * 1000 * 1024 * 1024  # GB → bytes (approx)
 
     is_time_out = False
-    is_results_empty = True
-
-    scope_results_path = Path(scope_results).resolve()
-    scope_results_path.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as tmp_output_folder:
-        tmpdir = Path(tmp_output_folder)
 
-        results_path = tmpdir / "results.csv"
-        source_in_sink_path = tmpdir / "source-in-sink.csv"
+        results_path = os.path.join(tmp_output_folder, "results.csv")
+        source_in_sink_path = os.path.join(tmp_output_folder, "source-in-sink.csv")
 
         cmd = [
             DEFAULT_KEXEC,
@@ -256,7 +248,7 @@ def run_rp2(
             f'-workflow.variable=input.mwmax-source,"{mwmax_source}",int',
             f'-workflow.variable=input.mwmax-cof,"{mwmax_cof}",int',
             f'-workflow.variable=input.std_mode,"{std_mode}",String',
-            f'-workflow.variable=output.dir,"{str(tmpdir)}/",String',
+            f'-workflow.variable=output.dir,"{tmp_output_folder}",String',
             f'-workflow.variable=output.solutionfile,"results.csv",String',
             f'-workflow.variable=output.sourceinsinkfile,"source-in-sink.csv",String',
         ]
@@ -275,12 +267,14 @@ def run_rp2(
                 stdout_text, _ = proc.communicate(timeout=timeout * 60.0)
             except subprocess.TimeoutExpired:
                 proc.kill()
+                logging.warning('RetroPath2 timed out')
                 is_time_out = True
                 stdout_text, _ = proc.communicate()
                 
-            logging.debug(f'Output RP2: {glob.glob(os.path.join(tmpdir, "*"))}')
+            logging.debug(f'Output RP2: {glob.glob(os.path.join(tmp_output_folder, "*"))}')
+            is_results_empty = True
             try:
-                count = _count_csv_rows(str(results_path))
+                count = _count_csv_rows(results_path)
                 if count > 1:
                     is_results_empty = False
             except (IndexError, FileNotFoundError):
@@ -294,19 +288,33 @@ def run_rp2(
                 return STATUS_SOURCE_IN_SINK_NOT_FOUND
 
             if is_time_out:
-                return STATUS_TIMEOUT_WARNING if (not is_results_empty and partial_retro) else STATUS_TIMEOUT_ERROR
+                if is_results_empty:
+                    return STATUS_TIMEOUT_ERROR
+                else:
+                    if not partial_retro:
+                        return STATUS_TIMEOUT_ERROR
 
             if "There is insufficient memory for the Java Runtime Environment to continue" in stdout_text:
-                return STATUS_MEM_WARNING if (not is_results_empty and partial_retro) else STATUS_MEM_ERROR
+                logging.warning('RetroPath2 ran out of memory')
+                if is_results_empty:
+                    return STATUS_MEM_ERROR
+                else:
+                    if not partial_retro:
+                        return STATUS_MEM_ERROR
 
-            csv_scope = glob.glob(str(tmpdir / "*_scope.csv"))
+            logging.debug(f'is_results_empty: {is_results_empty}')
+            logging.debug(f'is_time_out: {is_time_out}')
+            csv_scope = glob.glob(os.path.join(tmp_output_folder, "*_scope.csv"))
+            logging.debug(f'csv_scope: {csv_scope}')
             if csv_scope:
-                shutil.copyfile(csv_scope[0], str(scope_results_path))
+                logging.debug(f'Copying to {scope_results}')
+                shutil.copyfile(csv_scope[0], scope_results)
                 return STATUS_OK
-
-            if not is_results_empty and partial_retro and results_path.exists():
-                shutil.copyfile(str(results_path), str(scope_results_path))
-                return STATUS_NO_RESULT_WARNING
+            elif not is_results_empty and partial_retro:
+                logging.debug('Using partial results')
+                logging.debug(f'Copying to scope_results')
+                shutil.copyfile(results_path, scope_results)
+                return STATUS_OK
 
             return STATUS_NO_RESULT_ERROR
 
@@ -325,6 +333,9 @@ def run_pipeline(
     *,
     sink_file: str,
     source_inchi: str,
+    out_scope: str,
+    out_paths: str,
+    out_compounds: str,
     rules_file: Optional[str] = None,
     # rules-generation params
     diameters: str = DEFAULT_DIAMETERS,
@@ -340,9 +351,13 @@ def run_pipeline(
     timeout: int = DEFAULT_RP2_TIMEOUT,
     ram_limit: Optional[int] = DEFAULT_RP2_RAM_LIMIT,
     partial_retro: bool = DEFAULT_PARTIAL_RETRO,
-    out_path: Optional[str] = None,
-) -> str:
+) -> None:
     """Run the full pipeline and return the final out_paths.csv path."""
+    sink_file = Path(sink_file).expanduser().resolve()
+    if rules_file:
+        rules_file = Path(rules_file).expanduser().resolve()
+    logging.debug(f'sink_file: {sink_file}')
+    logging.debug(f'rules_file: {rules_file}')
     validate_std_mode(std_mode)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -397,7 +412,9 @@ def run_pipeline(
             raise RuntimeError(f"RP2 status code: {rc}")
 
         # Ensure scope/results CSV exists for downstream rp2paths
-        if not rp2_scope_final.is_file():
+        if rp2_scope_final.is_file():
+            shutil.copy(str(rp2_scope_final), out_scope)
+        else:
             raise RuntimeError("RetroPath2 did not produce a scope/results CSV at expected path.")
 
         # 4) Run rp2paths on the scope
@@ -407,16 +424,20 @@ def run_pipeline(
             logging.debug(f'RP2paths output: {glob.glob(str(rp2paths_tmpdir / "*"))}')
 
             rp2paths_out = rp2paths_tmpdir / "out_paths.csv"
-            if not rp2paths_out.is_file():
+            if rp2paths_out.is_file():
+                shutil.copyfile(str(rp2paths_out), out_paths)
+            else:
                 raise RuntimeError("RP2paths did not produce out_paths.csv")
 
-            # 5) Deliver output
-            if out_path:
-                out_path = str(Path(out_path).resolve())
-                shutil.copyfile(str(rp2paths_out), out_path)
-                return out_path
+            rp2paths_compounds = rp2paths_tmpdir / "compounds.txt" 
+            #for some stupid reason compount.txt is a TSV 
+            if rp2paths_compounds.is_file():
+                cmp = pd.read_csv(str(rp2paths_compounds), sep='\t')
+                cmp = cmp.set_index('Compound ID')
+                cmp.to_csv(str(out_compounds), quotechar='"', quoting=csv.QUOTE_ALL)
+                #shutil.copyfile(str(rp2paths_compounds), out_compounds)
             else:
-                return str(rp2paths_out.resolve())
+                raise RuntimeError("RP2paths did not produce compounts.txt")
 
 # -----------------------------
 # CLI
@@ -429,10 +450,13 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     )
     p.add_argument("--sink-file", required=True, help="Path to sink CSV file.")
     p.add_argument("--source-inchi", required=True, help="InChI string for the source compound.")
-
+    p.add_argument("--out-scope", required=True,
+                   help="User path for the output of retropath.")
+    p.add_argument("--out-paths", required=True,
+                   help="User path for the output paths of RP2paths.")
+    p.add_argument("--out-compounds", required=True,
+                   help="User path for the output compounds of RP2paths")
     # Optional outputs / inputs
-    p.add_argument("--out-path", required=False,
-                   help="Optional user path for the final out_paths.csv file.")
     p.add_argument("--rules-file", required=False, default=None, help="Path to rules CSV file.")
 
     # Rules-generation
@@ -455,7 +479,9 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
                    help="KNIME batch timeout (minutes).")
     p.add_argument("--ram-limit", type=int, default=DEFAULT_RP2_RAM_LIMIT,
                    help="Virtual memory GB limit (best-effort).")
-    p.add_argument("--partial-retro", action="store_true", default=DEFAULT_PARTIAL_RETRO,
+    p.add_argument("--accept-partial-results", 
+                   action=argparse.BooleanOptionalAction,
+                   default=DEFAULT_PARTIAL_RETRO,
                    help="Return partial results if scope not produced.")
     return p.parse_args(argv)
 
@@ -466,11 +492,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         # normalize/validate diameters
         cleaned_diameters = validate_diameters(args.diameters)
 
-        out_paths_csv = run_pipeline(
+        pipe_status = run_pipeline(
             sink_file=args.sink_file,
             source_inchi=args.source_inchi,
+            # rules
             rules_file=args.rules_file,
-            # rules-gen
             diameters=cleaned_diameters,
             rule_type=args.rule_type,
             # rp2
@@ -483,10 +509,12 @@ def main(argv: Optional[list[str]] = None) -> int:
             mwmax_cof=args.mwmax_cof,
             timeout=args.timeout,
             ram_limit=args.ram_limit,
-            partial_retro=args.partial_retro,
-            out_path=args.out_path,
+            partial_retro=args.accept_partial_results,
+            # out
+            out_scope=args.out_scope,
+            out_paths=args.out_paths,
+            out_compounds=args.out_compounds,
         )
-        print(out_paths_csv)
         return 0
     except Exception as e:
         sys.stderr.write(f"[ERROR] {e}\n")
