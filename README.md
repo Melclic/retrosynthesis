@@ -1,5 +1,7 @@
 # Retrosynthesis
 
+<img width="1438" height="655" alt="image" src="https://github.com/user-attachments/assets/bb968f1e-6158-4044-8a5a-2dbee6dab178" />
+
 This project provides an easier way to run retrosynthetic workflow to search for possible metabolic 
 routes between a list of starting molecules (sink) and a target molecule (source).
 
