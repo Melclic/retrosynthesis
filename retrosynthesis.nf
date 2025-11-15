@@ -22,20 +22,10 @@ params.rule_type    = "all"
 params.ram_limit = 15
 
 params.output_folder = "rp2"
+params.help = false
 
-// -------------------------------
-// Validation
-// -------------------------------
-if( !params.sink_file )    exit 1, "ERROR: You must provide --sink_file"
-if( !params.source_inchi ) exit 1, "ERROR: You must provide --source_inchi"
-
-
-// -------------------------------
-// Process
-// -------------------------------
-process RETROSYNTHESIS {
+process retrosynthesis {
     container "melclic/retrosynthesis:rp-0.1.0"
-
 
     publishDir (
         path: { "${params.output_folder}/" },
@@ -75,13 +65,66 @@ process RETROSYNTHESIS {
         """
 }
 
+def helpMessage() {
+    log.info """
+╭────────────────────────────────────────────────────────────────────────────╮
+│                        RetroPath2 Nextflow Pipeline                        │
+╰────────────────────────────────────────────────────────────────────────────╯
+
+DESCRIPTION
+    Run a RetroPath2 retrosynthesis pipeline inside a Docker container.
+
+USAGE
+    nextflow run main.nf --sink_file <file> --source_inchi <InChI> [options]
+
+REQUIRED PARAMETERS
+    --sink_file <path>             Path to sink file (target compounds)
+    --source_inchi <string>        Source compound InChI string
+
+OPTIONAL PARAMETERS
+    --rules_file <path>            Path to SMARTS rules file (default: none)
+    --std_mode <string>            Molecule standardization mode
+                                   (default: "H added + Aromatized")
+    --max_steps <int>              Maximum retrosynthesis steps (default: 6)
+    --topx <int>                   Keep top X results per step (default: 1000)
+    --accept_partial_results <bool>Accept incomplete results (default: false)
+    --diameters <string>           Comma-separated diameters (default: "2,4,6,8,10,12,14,16")
+    --rule_type <string>           Rule selection type (default: "all")
+    --ram_limit <int>              Memory limit in GB (default: 15)
+    --output_folder <path>         Output folder (default: "rp2")
+
+EXAMPLE
+    nextflow run main.nf \\
+        --sink_file sinks.csv \\
+        --source_inchi "InChI=1S/C7H6O3/c8-5-2-1-3-6(9)7(5)10/h1-3,9-10H" \\
+        --rules_file rules.csv \\
+        --max_steps 8 \\
+        --topx 500
+
+OUTPUTS
+    out_paths.csv       Reaction paths between source and sink compounds
+    out_compounds.csv   Intermediate and product compound structures
+    out_scope.csv       Reachability and transformation scope data
+
+NOTES
+    • Runs inside Docker image: melclic/retrosynthesis:rp-0.1.0
+    • Published results are saved in the directory specified by --output_folder.
+""".stripIndent()
+}
+
 // -------------------------------
 // Workflow
 // -------------------------------
 workflow {
+
+    if (params.help || !params.sink_file || !params.source_inchi){
+        helpMessageParse()
+        exit 0
+    }
+
     Channel.fromPath(params.sink_file, checkIfExists: true).set { ch_sink_file }
     Channel.value(params.source_inchi).set { ch_source_inchi }
     Channel.value(params.accept_partial_results as boolean).set { ch_partial_flag }
     ch_rules = params.rules_file ? Channel.fromPath(params.rules_file) : Channel.fromPath("NONE.rules")
-    retro_ch = RETROSYNTHESIS(ch_sink_file, ch_source_inchi, ch_partial_flag, ch_rules)
+    retro_ch = retrosynthesis(ch_sink_file, ch_source_inchi, ch_partial_flag, ch_rules)
 }
