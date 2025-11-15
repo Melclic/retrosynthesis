@@ -1,3 +1,6 @@
 *.swp
 OLD/
 test/sanity_test/
+.nextflow*
+work/
+.DS_Store

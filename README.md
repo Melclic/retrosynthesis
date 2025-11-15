@@ -11,12 +11,18 @@ routes between a list of starting molecules (sink) and a target molecule (source
 
 The pipeline uses the following projects:
 
-- **[RRParser](https://github.com/brsynth/RRParser)**: for generating retrosynthesis rules.
-- **[RetroPath2-wrapper](https://github.com/brsynth/RetroPath2-wrapper)**: the RetroPath2 workflow engine.
 - **[rp2paths](https://github.com/brsynth/rp2paths)**: for pathway enumeration.
 - **KNIME base image**: [knime/knime:r-4.7.8-738](https://hub.docker.com/layers/knime/knime/r-4.7.8-738/images/sha256-aafd39556d1ed2911f8105aaa71fdcb3e748c575fe70045ac62dd5ff0ba1de69)
 
 ---
+
+## Running
+
+The easiest way to run is to install [nextflow](https://www.nextflow.io/) and using the following example command:
+
+```bash
+nextflow run retrosynthesis.nf --sink_file test/sinkfile.csv --source_inchi "InChI=1S/C10H16/c1-7-4-5-8-6-9(7)10(8,2)3/h4,8-9H,5-6H2,1-3H3/t8-,9-/m1/s1" -profile docker
+```
 
 ## Installation
 
@@ -57,7 +63,7 @@ docker run --rm -v $PWD:/data melclic/retrosynthesis:rp-0.1.0 \
 
 ---
 
-## Parameters
+## Parameters of the retropipeline script
 
 Below is the full list of supported parameters.
 
