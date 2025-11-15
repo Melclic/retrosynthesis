@@ -3,7 +3,7 @@
 Created on January 16 2020
 
 @author: Melchior du Lac
-@description: Galaxy script to query rpRetroPath2.0 REST service
+@description: Script to run RetroPath2.0 from command line
 
 """
 
@@ -17,6 +17,7 @@ import os
 import tempfile
 import argparse
 import shutil
+from typing import Tuple, Optional
 
 
 KPATH = '/usr/local/knime/knime'
@@ -36,56 +37,70 @@ logging.basicConfig(
 MAX_VIRTUAL_MEMORY = 30000*1024*1024 # 30 GB -- define what is the best
 
 
-def limit_virtual_memory():
-    """Limit the virtual of the subprocess call
+def limit_virtual_memory() -> None:
+    """Set an upper limit on the virtual memory available to child processes.
+
+    This function is intended to be used as the ``preexec_fn`` for
+    :pyfunc:`subprocess.Popen` so that the launched KNIME process cannot
+    exceed the configured virtual memory limit.
+
+    Returns:
+        None
     """
     resource.setrlimit(resource.RLIMIT_AS, (MAX_VIRTUAL_MEMORY, resource.RLIM_INFINITY))
 
 
-def run_rp2(sink_path, 
-            rules_path, 
-            source_inchi, 
-            results_csv, 
-            max_steps, 
-            source_name='target', 
-            topx=100, 
-            dmin=0, 
-            dmax=1000, 
-            mwmax_source=1000, 
-            mwmax_cof=1000, 
-            timeout=30, 
-            ram_limit=None, 
-            partial_retro=False):
-    """Call the KNIME RetroPath2.0 workflow
+def run_rp2(
+    sink_path: str,
+    rules_path: str,
+    source_inchi: str,
+    results_csv: str,
+    max_steps: int,
+    source_name: str = 'target',
+    topx: int = 100,
+    dmin: int = 0,
+    dmax: int = 1000,
+    mwmax_source: int = 1000,
+    mwmax_cof: int = 1000,
+    timeout: int = 30,
+    ram_limit: Optional[int] = None,
+    partial_retro: bool = False,
+) -> Tuple[str, bytes]:
+    """Execute the KNIME RetroPath2.0 workflow and collect results.
 
-    :param source_bytes: The source file as bytes
-    :param sink_bytes: The sink file as bytes
-    :param rules_bytes: The rules file as bytes
-    :param max_steps: The maximal number of steps
-    :param topx: The top number of reaction rules to keep at each iteraction (Default: 100)
-    :param dmin: The minimum diameter of the reaction rules (Default: 0)
-    :param dmax: The miximum diameter of the reaction rules (Default: 1000)
-    :param mwmax_source: The maximal molecular weight of the intermediate compound (Default: 1000)
-    :param mwmax_cof: The coefficient of the molecular weight of the intermediate compound (Default: 1000)
-    :param timeout: The timeout of the function in minutes (Default: 30)
-    :param partial_retro: Return partial results if the execution is interrupted for any reason (Default: False)
-    :param logger: Logger object (Default: None)
+    The function prepares temporary input files, constructs the KNIME CLI
+    command with the provided parameters, runs KNIME as a subprocess and
+    interprets the outputs and errors. The KNIME runtime timeout is provided
+    in minutes and will be converted to seconds when passed to
+    :pyfunc:`subprocess.Popen.communicate`.
 
-    :type source_bytes: bytes
-    :type sink_bytes: bytes
-    :type rules_bytes: bytes
-    :type max_steps: int
-    :type topx: int
-    :type dmin: int
-    :type dmax: int
-    :type mwmax_source: int
-    :type mwmax_cof: int
-    :type timeout: int
-    :type partial_retro: bool
-    :type logger: logging
+    Args:
+        sink_path: Path to the sink (organism) molecules file used by KNIME.
+        rules_path: Path to the reaction rules CSV file.
+        source_inchi: InChI string for the target/source molecule.
+        results_csv: Destination path where KNIME results.csv should be copied.
+        max_steps: Maximum allowed number of retrosynthesis steps.
+        source_name: Name to assign to the source in the input CSV (default: "target").
+        topx: Number of top-ranked rules to keep at each iteration (default: 100).
+        dmin: Minimum reaction-rule diameter to request (default: 0).
+        dmax: Maximum reaction-rule diameter to request (default: 1000).
+        mwmax_source: Maximum molecular weight for source compounds (default: 1000).
+        mwmax_cof: Maximum molecular weight for cofactors (default: 1000).
+        timeout: Timeout for the KNIME run, in minutes (default: 30).
+        ram_limit: Optional RAM limit in GB to apply to the subprocess (default: None).
+        partial_retro: If True, allow returning partial results on failures (default: False).
 
-    :rtype: tuple
-    :return: tuple of bytes with the results, the status message, the KNIME command used
+    Returns:
+        A tuple (status, message_bytes) where ``status`` is a short status code
+        (e.g. 'noerror', 'timeouterror', 'memerror', etc.) and ``message_bytes``
+        contains additional information (command, error messages, or empty
+        bytes) encoded as UTF-8.
+
+    Notes:
+        - Temporary files are created in a temporary directory and removed on
+          function exit. When partial results are requested and available, the
+          results CSV will be copied to ``results_csv`` before returning.
+        - The function logs detailed debug information to the module logger.
     """
     logger = logging.getLogger(__name__)
     logger.debug('Timeout: '+str(timeout*60.0)+' seconds')

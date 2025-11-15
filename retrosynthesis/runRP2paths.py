@@ -2,7 +2,7 @@
 Created on March 7 2019
 
 @author: Melchior du Lac
-@description: Standalone version of RP2paths. Returns bytes to be able to use the same file in REST application
+@description: Standalone version of RP2paths to be called from other scripts
 
 """
 import subprocess
@@ -14,29 +14,56 @@ import shutil
 import logging
 import os
 import argparse
+from typing import Tuple, Optional
 
 
 MAX_VIRTUAL_MEMORY = 20000 * 1024 * 1024 # 20GB -- define what is the best
 #MAX_VIRTUAL_MEMORY = 20 * 1024 * 1024 # 20GB -- define what is the best
 
 
-def limit_virtual_memory():
+def limit_virtual_memory() -> None:
+    """Limit virtual memory available to child processes.
+
+    This helper is intended to be passed as the ``preexec_fn`` to
+    :pyfunc:`subprocess.Popen` so that the child process is constrained by
+    ``MAX_VIRTUAL_MEMORY``.
+
+    Returns:
+        None
+    """
     resource.setrlimit(resource.RLIMIT_AS, (MAX_VIRTUAL_MEMORY, resource.RLIM_INFINITY))
 
 
-def run_rp2paths(rp2_pathways, out_paths='', out_compounds='', timeout=None, ram_limit=None):
-    """Make a subprocess call of rp2paths
+def run_rp2paths(
+    rp2_pathways: str,
+    out_paths: str = '',
+    out_compounds: str = '',
+    timeout: Optional[int] = None,
+    ram_limit: Optional[int] = None,
+) -> Tuple[str, bytes]:
+    """Run RP2paths as a subprocess and collect its outputs.
 
-    :param rp2_pathways_bytes: The rp2 pathways file as bytes
-    :param timeout: The timeout of the function in minutes
-    :param logging: The logging object
+    The function launches the RP2paths module (via ``python3 -m rp2paths``)
+    against the provided pathways file, waits for completion, and copies the
+    generated outputs to the caller-provided locations (or the current working
+    directory when no destinations are provided).
 
-    :type rp2_pathways_bytes: bytes
-    :type timeout: int
-    :type logging: logging
+    Args:
+        rp2_pathways: Path to the rp2 pathways input file.
+        out_paths: Destination path for the generated `out_paths.csv`. If
+            empty, the file is written to the current working directory.
+        out_compounds: Destination path for the generated `compounds.txt`. If
+            empty, the file is written to the current working directory.
+        timeout: Timeout for the rp2paths run in minutes. When ``None``, a
+            default of 30 minutes is used.
+        ram_limit: Optional RAM limit in GB to apply to the subprocess.
 
-    :rtype: tuple
-    :return: tuple of bytes with the out_paths, the compunds, the status message, the command used
+    Returns:
+        A tuple ``(status, message_bytes)`` where ``status`` is a short status
+        code such as ``'noerror'``, ``'timeout'``, ``'memoryerror'``,
+        ``'filenotfounderror'``, etc., and ``message_bytes`` contains additional
+        diagnostic information (command, stderr, or empty bytes) encoded as
+        UTF-8.
     """
     if ram_limit:
         global MAX_VIRTUAL_MEMORY
@@ -74,7 +101,7 @@ def run_rp2paths(rp2_pathways, out_paths='', out_compounds='', timeout=None, ram
                     shutil.copy(os.path.join(tmpOutputFolder, 'compounds.txt'), out_compounds)
                 else:
                     shutil.copy(os.path.join(tmpOutputFolder, 'compounds.txt'), os.path.join(os.getcwd(), 'compounds.txt'))
-                return 'noerror', ''
+                return 'noerror', str('').encode('utf-8')
             except FileNotFoundError as e:
                 logging.error('Cannot find the output files out_paths.csv or compounds.txt')
                 return 'filenotfounderror', str.encode('Command: '+str(rp2paths_command)+'\n Error: '+str(e)+'\n tmpOutputFolder: '+str(glob.glob(tmpOutputFolder+'/*')))

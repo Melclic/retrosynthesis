@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+"""
+Created on January 16 2020
+
+@author: Melchior du Lac
+@description: Script to run the whole retrosynthesis pipeline: RetroRules -> RetroPath2.0 -> RP2paths
+
+"""
+
 import os
 import logging
 import tempfile
@@ -5,6 +14,7 @@ import argparse
 import shutil
 import tarfile
 import glob
+from typing import List, Optional
 
 import runRR
 import runRP2
@@ -12,26 +22,73 @@ import runRP2paths
 
 RR_FILE_FORMAT = 'csv'
 
-def run(sink_path,
-        source_inchi,
-        max_steps,
-        rp2_output='',
-        rp2_paths='',
-        rp2_cmps='',
-        tar_all=None,
-        rr_diameters=[2,4,6,8,10,12,14,16],
-        rr_type='all',
-        rr_input_file=None,
-        rr_input_file_format=None,
-        source_name='target',
-        topx=100,
-        dmin=0,
-        dmax=1000,
-        mwmax_source=1000,
-        mwmax_cof=1000,
-        time_out=120,
-        ram_limit=None,
-        partial_retro=False):
+def run(sink_path: str,
+        source_inchi: str,
+        max_steps: int,
+        rp2_output: str = '',
+        rp2_paths: str = '',
+        rp2_cmps: str = '',
+        tar_all: Optional[str] = None,
+        rr_diameters: List[int] = [2,4,6,8,10,12,14,16],
+        rr_type: str = 'all',
+        rr_input_file: Optional[str] = None,
+        rr_input_file_format: Optional[str] = None,
+        source_name: str = 'target',
+        topx: int = 100,
+        dmin: int = 0,
+        dmax: int = 1000,
+        mwmax_source: int = 1000,
+        mwmax_cof: int = 1000,
+        time_out: int = 120,
+        ram_limit: Optional[int] = None,
+        partial_retro: bool = False) -> str:
+    """Run the retrosynthesis pipeline (RetroRules -> RetroPath2.0 -> RP2paths).
+
+    This function orchestrates RetroPath2.0 to compute retrosynthesis pathways and then
+    post-processes results with RP2paths. Intermediate files are created in a
+    temporary directory and copied or archived to user-specified locations when
+    requested.
+
+    Args:
+        sink_path: Path to the sink (organism) molecules file.
+        source_inchi: InChI string of the target/source molecule.
+        max_steps: Maximum allowed heterologous pathway length (number of steps).
+        rp2_output: Destination CSV path for RetroPath2.0 results. If empty,
+            defaults to writing `rp2_output.csv` into the current working directory.
+        rp2_paths: Destination CSV path for RP2paths pathway results. If empty,
+            writes a default filename into the current working directory.
+        rp2_cmps: Destination CSV path for RP2paths compounds results. If empty,
+            writes a default filename into the current working directory.
+        tar_all: Optional path to write a compressed tar.gz archive containing the
+            intermediate files. If the provided path does not end with '.tar.gz',
+            the extension will be appended.
+        rr_diameters: List of diameters to request for reaction rule generation.
+        rr_type: Type of reaction rules to use; one of 'all', 'forward', or 'retro'.
+        rr_input_file: Optional path to an existing reaction-rule file. When
+            provided, rules will be parsed from this file instead of generated.
+        rr_input_file_format: Optional format identifier for the input rules file
+            (used when `rr_input_file` is provided).
+        source_name: Name to assign to the source in RetroPath2.0.
+        topx: Number of top-ranked reaction rules to consider at each iteration.
+        dmin: Minimum rule dimension to allow.
+        dmax: Maximum rule dimension to allow.
+        mwmax_source: Maximum molecular weight for source compounds.
+        mwmax_cof: Maximum molecular weight for cofactors.
+        time_out: Timeout in seconds passed to external tools.
+        ram_limit: Optional RAM limit (in GB) passed to external tools. ``None``
+            means no RAM limit will be enforced.
+        partial_retro: If True, enables partial retrosynthesis mode in RetroPath2.0.
+
+    Returns:
+        A status string. On success returns 'noerrors'. On failure returns a
+        short error code describing the problem (for example 'rr_type',
+        'rp2_time_out', 'rp2_mem', 'rp2paths_filenotfound', etc.).
+
+    Notes:
+        - Temporary files are removed when the function exits unless they are
+          copied or archived to paths provided by the caller.
+        - The function logs error messages using the ``logging`` module.
+    """
     with tempfile.TemporaryDirectory() as tmp_dir:
         rp2paths_out_paths = os.path.join(tmp_dir, 'out_paths.csv')
         rp2paths_out_compounds = os.path.join(tmp_dir, 'out_compounds.csv')

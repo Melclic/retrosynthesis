@@ -3,7 +3,7 @@
 Created on September 21 2019
 
 @author: Melchior du Lac
-@description: Return RetroRules
+@description: Return RetroRules from user defined diameters
 
 """
 
@@ -23,22 +23,29 @@ import logging
 #logging.config.dictConfig(LOGGING_CONFIG)
 #logger = logging.getLogger(__name__)
 logger = logging.getLogger(os.path.basename(__file__))
+from typing import List
 
-def passRules(output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], output_format='csv'):
-    """Parse the input file and return the reactions rules at the appropriate diameters
+def passRules(
+    output: str,
+    rules_type: str = 'all',
+    diameters: List[int] = [2, 4, 6, 8, 10, 12, 14, 16],
+    output_format: str = 'csv',
+) -> bool:
+    """Parse a bundled rules file and write rules filtered by diameter.
 
-    :param output: Path to the output file
-    :param rules_type: The rule type to return. Valid options: all, forward, retro. (Default: all)
-    :param diameters: The diameters to return. Valid options: 2,4,6,8,10,12,14,16. (Default: [2,4,6,8,10,12,14,16])
-    :param output_format: The output format. Valid options: csv, tar. (Default: csv)
+    This function selects the appropriate built-in rules CSV depending on
+    ``rules_type`` and filters rows whose diameter is included in
+    ``diameters``. The filtered rules are written to ``output`` either as a
+    plain CSV file or as a gzipped tar archive containing `Rules.csv`.
 
-    :type output: str 
-    :type rules_type: str
-    :type diameters: list
-    :type output_format: str
+    Args:
+        output: Path to write the filtered rules to (CSV path or .tar.gz).
+        rules_type: Which bundled rules to use: 'all', 'forward', or 'retro'.
+        diameters: List of integer diameters to retain.
+        output_format: Either 'csv' or 'tar' to control output packaging.
 
-    :rtype: bool
-    :return: Success or failure of the function
+    Returns:
+        True on success, False on failure.
     """
     logger.debug('Parsing the rules diamters '+str(diameters)+' for type '+str(rules_type)+' with output '+str(output_format)) 
     rule_file = None
@@ -98,25 +105,31 @@ def passRules(output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], output_
     return True
 
 
-def parseRules(rule_file, output, rules_type='all', diameters=[2,4,6,8,10,12,14,16], input_format='csv', output_format='csv'):
-    """Parse the rules if a user inputs it as a file
+def parseRules(
+    rule_file: str,
+    output: str,
+    rules_type: str = 'all',
+    diameters: List[int] = [2, 4, 6, 8, 10, 12, 14, 16],
+    input_format: str = 'csv',
+    output_format: str = 'csv',
+) -> bool:
+    """Parse a rules file and write filtered rules by diameter.
 
-    :param rule_file: Path to the rule file
-    :param output: Path to the output file
-    :param rules_type: The rule type to return. Valid options: all, forward, retro. (Default: all)
-    :param diameters: The diameters to return. Valid options: 2,4,6,8,10,12,14,16. (Default: [2,4,6,8,10,12,14,16])
-    :param intput_format: The input file format. Valid options: csv, tar. (Default: csv)
-    :param output_format: The output format. Valid options: csv, tar. (Default: csv)
+    Supports both CSV and TSV input formats. Filters rows based on the
+    provided ``diameters`` and, depending on ``rules_type``, filters by rule
+    usage (forward/retro/both). The filtered rules are written to ``output``
+    either as CSV or as a gzipped tar archive containing `Rules.csv`.
 
-    :type rule_file: str 
-    :type output: str 
-    :type rules_type: str
-    :type diameters: list
-    :type input_format: str
-    :type output_format: str
+    Args:
+        rule_file: Path to the input rules file (CSV or TSV).
+        output: Path to write the filtered rules to (CSV path or .tar.gz).
+        rules_type: Which rules to retain: 'all', 'forward', or 'retro'.
+        diameters: List of integer diameters to retain.
+        input_format: 'csv' or 'tsv' indicating the input file format.
+        output_format: 'csv' or 'tar' indicating desired output packaging.
 
-    :rtype: bool
-    :return: Success or failure of the function
+    Returns:
+        True on success, False on failure.
     """
     #check the input diameters are valid #
     try:
