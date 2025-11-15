@@ -118,7 +118,7 @@ NOTES
 workflow {
 
     if (params.help || !params.sink_file || !params.source_inchi){
-        helpMessageParse()
+        helpMessage()
         exit 0
     }
 

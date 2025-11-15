@@ -24,6 +24,70 @@ The easiest way to run is to install [nextflow](https://www.nextflow.io/) and us
 nextflow run retrosynthesis.nf --sink_file test/sinkfile.csv --source_inchi "InChI=1S/C10H16/c1-7-4-5-8-6-9(7)10(8,2)3/h4,8-9H,5-6H2,1-3H3/t8-,9-/m1/s1" -profile docker
 ```
 
+out_paths.csv — Enumerated reaction pathways between the source and sink.
+out_compounds.csv — All compounds appearing in the enumerated pathways.
+out_scope.csv — Transformation scope and reachability information.
+### Parameters
+
+#### Required parameters
+
+- **`--sink_file <path>`**  
+  Path to the sink file for the host organism. This file lists metabolites considered reachable by the host metabolism.
+
+- **`--source_inchi <string>`**  
+  InChI string of the target compound to synthesize.
+
+#### Optional parameters
+
+- **`--rules_file <path>`**  
+  Path to a RetroRules or SMARTS rules file.  
+  If omitted, default rules inside the Docker image are used.
+
+- **`--std_mode <string>`**  
+  Molecule standardization mode.  
+  Default: `"H added + Aromatized"`.
+
+- **`--max_steps <int>`**  
+  Maximum number of retrosynthesis steps (pathway length).  
+  Default: `6`.
+
+- **`--topx <int>`**  
+  Maximum number of reaction rules kept at each iteration.  
+  Default: `1000`.
+
+- **`--accept_partial_results <true or false>`**  
+  If true, the workflow keeps partial pathways that do not reach a sink.  
+  Default: `false`.
+
+- **`--diameters <string>`**  
+  Comma separated list of reaction rule diameters.  
+  Default: `"2,4,6,8,10,12,14,16"`.
+
+- **`--rule_type <string>`**  
+  Reaction rule selection type (for example `"all"`).  
+  Default: `"all"`.
+
+- **`--ram_limit <int>`**  
+  Memory limit (typically in gigabytes) forwarded to the internal Python pipeline.  
+  Default: `15`.
+
+- **`--output_folder <path>`**  
+  Folder where the result CSV files are written.  
+  Default: `rp2`.
+
+- **`--help`**  
+  Print the workflow help message and exit.
+
+---
+
+### Outputs
+
+The following CSV files are written into the folder specified by `--output_folder`:
+
+- **`out_paths.csv`** — Enumerated reaction pathways between the source and sink.
+- **`out_compounds.csv`** — All compounds appearing in the enumerated pathways.
+- **`out_scope.csv`** — Transformation scope and reachability information.
+
 ## Installation
 
 ### Using Docker (recommended)
@@ -44,7 +108,7 @@ docker build -t retrosynthesis:local .
 
 ---
 
-## Usage
+## Script Usage
 
 Within the docker you can run the script with:
 
