@@ -53,6 +53,12 @@ docker run --rm -v $PWD:/data melclic/retrosynthesis:rp-0.1.0 \
   --out-path /data/out_paths.csv
 ```
 
+The simples however is using the nextflow workflow:
+
+```bash
+nextflow run retrosynthesis.nf --sink_file ./notebooks/test_rp2/sinkfile.csv --source_inchi "InChI=1S/C6H6O2/c7-5-3-1-2-4-6(5)8/h1-4,7-8H" --max_steps 3
+```
+
 ---
 
 ## Parameters

@@ -25,7 +25,7 @@ params.output_folder = "rp2"
 params.help = false
 
 process retrosynthesis {
-    container "melclic/retrosynthesis:rp-0.1.0"
+    container "melclic/retrosynthesis:latest"
 
     publishDir (
         path: { "${params.output_folder}/" },
@@ -118,13 +118,13 @@ NOTES
 workflow {
 
     if (params.help || !params.sink_file || !params.source_inchi){
-        helpMessageParse()
+        helpMessage()
         exit 0
     }
 
-    Channel.fromPath(params.sink_file, checkIfExists: true).set { ch_sink_file }
-    Channel.value(params.source_inchi).set { ch_source_inchi }
-    Channel.value(params.accept_partial_results as boolean).set { ch_partial_flag }
-    ch_rules = params.rules_file ? Channel.fromPath(params.rules_file) : Channel.fromPath("NONE.rules")
-    retro_ch = retrosynthesis(ch_sink_file, ch_source_inchi, ch_partial_flag, ch_rules)
+    ch_sink_file = channel.fromPath(params.sink_file, checkIfExists: true)
+    ch_source_inchi = channel.value(params.source_inchi)
+    ch_partial_flag = channel.value(params.accept_partial_results as boolean)
+    ch_rules = params.rules_file ? channel.fromPath(params.rules_file) : channel.fromPath("NONE.rules")
+    retrosynthesis(ch_sink_file, ch_source_inchi, ch_partial_flag, ch_rules)
 }
