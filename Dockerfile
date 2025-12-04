@@ -66,4 +66,5 @@ RUN rm -r __MACOSX
 RUN python -c "from rrparser import parse_rules; parse_rules(outfile='tmp.csv',input_format='csv',rule_type='all',diameters='2,4,6,8,10,12,14,16',output_format='csv')" && rm tmp.csv
 
 COPY scripts/retropipeline.py .
+COPY scripts/extract_sink.py .
 
